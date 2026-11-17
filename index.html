@@ -43,13 +43,13 @@ if(!p){if(G.ph!='lobby')return c.send({err:'เกมเริ่มไปแล
 p.conn=c;c.pid=p.id;up()}else if(c.pid)handle(c.pid,m)}
 function tx(m){isHost?handle('host',m):conn.send(m)}
 function up(){G.ps.forEach(p=>{const v=vw(p);if(p.id=='host')onState(v);else if(p.conn&&p.conn.open)p.conn.send(v)})}
-function onState(v){S=v;const g=v.ph+v.n+(v.pr?v.pr.t:'');if(g!=sig){sig=g;sel=[];wh=0}render()}
+let lj;function onState(v){const j=JSON.stringify(v);if(j==lj)return;lj=j;S=v;const g=v.ph+v.n+(v.pr?v.pr.t:'');if(g!=sig){sig=g;sel=[];wh=0}render()}
 // ---------- ตรรกะเกม (โฮสต์) ----------
 function handle(id,m){const H=id=='host',p=P(id);
 if(H&&G.ph=='lobby'){if(m.t=='r')G.cfg.r[m.k]=Math.max(0,(G.cfg.r[m.k]||0)+m.d);if(m.t=='tg')G.cfg[m.k]=!G.cfg[m.k];if(m.t=='go')start()}
 if(m.t=='a'&&p)act(p,m.v);
 if(m.t=='rdy'&&G.ph=='day'&&p&&p.alive){p.rdy=!p.rdy;const a=pl().filter(q=>q.alive);if(a.filter(q=>q.rdy).length>a.length/2)vote()}
-if(H&&G.cfg.mod&&m.t=='mod')modGo();
+if(H&&m.t=='mod')modGo();if(H&&m.t=='tm'&&G.dl&&(G.ph=='day'||G.ph=='vote')){G.dl+=m.d;tm()}if(H&&m.t=='kick'&&G.ph=='lobby'){const k=P(m.id);if(k&&k.id!='host'){if(k.conn)k.conn.close();G.ps=G.ps.filter(q=>q!=k)}}
 if(H&&G.ph=='end'&&m.t=='again'){G.ph='lobby';G.win=0}
 up()}
 function start(){const pp=pl(),c=G.cfg.r,d=[];for(const k in c)for(let i=0;i<c[k];i++)d.push(k);
@@ -95,7 +95,7 @@ function dawn(){G.log.push(`☀️ เช้าวันที่ ${G.n}`);const
 pl().forEach(p=>{const s=G.sub[p.id];if(!s||!p.alive)return;if(p.role=='witch'){if(s.h)x=1;if(s.p)pz=s.p}if(p.role=='guard')g=s[0]});
 if(v&&!x&&v!=g)kill(v);if(pz)kill(pz);
 if(G.log.length==n0)G.log.push('คืนที่ผ่านมาไม่มีใครตาย');
-post(()=>{if(!chk()){G.ph='day';G.ps.forEach(p=>p.rdy=0);G.dl=Date.now()+3e5;tm()}})}
+post(()=>{if(!chk()){G.ph='day';G.ps.forEach(p=>p.rdy=0);G.dl=Date.now()+12e4;tm()}})}
 function vote(){G.ph='vote';G.votes={};G.dl=Date.now()+9e4;tm()}
 function tally(){const c={};Object.entries(G.votes).forEach(([k,t])=>{if(t&&t!='-')c[t]=(c[t]||0)+(P(k).role=='mayor'?2:1)});
 const m=Math.max(0,...Object.values(c)),k=Object.keys(c).filter(x=>c[x]==m),t=m&&k.length==1?P(k[0]):0;
@@ -104,12 +104,12 @@ if(!t)G.log.push('ไม่มีใครถูกกำจัด');
 else if(t.role=='prince'&&!G.pu){G.pu=1;G.log.push(`👑 ${t.name} เปิดเผยตัวเป็นเจ้าชาย และรอดชีวิต!`)}
 else{kill(t.id);if(t.role=='tanner')G.tw=1}
 post(()=>{if(!chk()){G.n++;night()}})}
-function tm(){clearTimeout(T);if(G.cfg.mod){G.dl=0;return}T=setTimeout(()=>{if(G.ph=='day')vote();else if(G.ph=='vote')tally();up()},G.dl-Date.now())}
-function modGo(){const h=G.ph;if(h=='night'){hold(G.steps[G.si]).forEach(p=>G.sub[p.id]=p.role=='witch'?{}:['-']);adv()}else if(h=='day')vote();else if(h=='vote')tally();else if(h=='hunter'){G.hq.shift();post(G.cb)}}
+function tm(){clearTimeout(T);if(G.cfg.mod)return;T=setTimeout(()=>{if(G.ph=='day')vote();else if(G.ph=='vote')tally();up()},G.dl-Date.now())}
+function modGo(){const h=G.ph;if(h=='night'){while(G.ph=='night'){hold(G.steps[G.si]).forEach(p=>G.sub[p.id]=p.role=='witch'?{}:['-']);adv()}}else if(h=='day')vote();else if(h=='vote')tally();else if(h=='hunter'){G.hq.shift();post(G.cb)}}
 function vw(p){const h=G.ph,mod=G.cfg.mod&&p.id=='host',nm=i=>i=='-'?'ข้าม':(P(i)||{}).name;
 const ac=q=>{const s=mod&&h=='night'&&G.sub[q.id];return s?(Array.isArray(s)?s.map(nm).join(','):`ฟื้น:${s.h?'✓':'-'} พิษ:${s.p?nm(s.p):'-'}`):''};
 return{ph:h,n:G.n,cfg:G.cfg,code:G.code,log:G.log.slice(-8),dl:G.dl,mod,win:G.win,
-me:{id:p.id,role:p.role,alive:p.alive,note:p.note||[],mates:p.role=='wolf'?pl().filter(q=>q.role=='wolf'&&q!=p).map(q=>q.name):[]},
+me:{id:p.id,role:p.role,alive:p.alive,sent:h=='night'&&!!G.sub&&G.sub[p.id]!==undefined,note:p.note||[],mates:p.role=='wolf'?pl().filter(q=>q.role=='wolf'&&q!=p).map(q=>q.name):[]},
 ps:G.ps.map(q=>({id:q.id,name:q.name,alive:q.alive,rd:q.rdy,on:q.id=='host'||!!q.conn,m:G.cfg.mod&&q.id=='host',ac:ac(q),r:h=='lobby'?0:(!q.alive||mod||h=='end')?q.role:0})),
 pr:h!='lobby'&&h!='end'?pr(p):null,vt:h=='vote'&&(!G.cfg.sec||mod)?G.votes:null}}
 // ---------- หน้าจอ ----------
@@ -117,7 +117,7 @@ const card=k=>{const r=R[k];return`<div class="card ${r[3]=='w'?'w':r[3]=='x'?'x
 const sgn=n=>(n>0?'+':'')+n;
 function render(){const s=S;if(!s)return;const pl=s.ps.filter(q=>!q.m),nm=i=>(s.ps.find(q=>q.id==i)||{}).name;let h='<h1>🐺 มนุษย์หมาป่า</h1>';
 if(s.ph=='lobby'){const np=pl.length,c=s.cfg.r;let cnt=0,tot=0;for(const k in R){const n=c[k]||0;cnt+=n;tot+=n*R[k][2]}if(np>cnt)tot+=np-cnt;
-h+=`<div class=box><h2>รหัสห้อง: ${s.code}</h2>ผู้เล่น ${np} คน (ส่งรหัสนี้ให้เพื่อน)`+pl.map(q=>`<div class=row><span>${q.name}</span><span>${q.on?'🟢':'📴'}</span></div>`).join('')+'</div>';
+h+=`<div class=box><h2>รหัสห้อง: ${s.code}</h2>ผู้เล่น ${np} คน (ส่งรหัสนี้ให้เพื่อน)`+pl.map(q=>`<div class=row><span>${q.name}</span><span>${q.on?'🟢':'📴'}${isHost&&q.id!='host'?`<button onclick="tx({t:'kick',id:'${q.id}'})">❌</button>`:''}</span></div>`).join('')+'</div>';
 if(isHost){h+=`<div class=box><button onclick="tx({t:'tg',k:'mod'})">ผู้ดำเนินเกม: ${s.cfg.mod?'คนคุมเกม (โฮสต์ไม่เล่น)':'แอปอัตโนมัติ'}</button><button onclick="tx({t:'tg',k:'sec'})">โหวต: ${s.cfg.sec?'ลับ':'เปิดเผย'}</button></div><div class=box><b>เลือกบทบาท</b> (ที่เหลือเติมเป็นชาวบ้านอัตโนมัติ)`+Object.keys(R).map(k=>`<div class=row><span>${R[k][1]} ${R[k][0]} (${sgn(R[k][2])})</span><span><button onclick="tx({t:'r',k:'${k}',d:-1})">−</button>${c[k]||0}<button onclick="tx({t:'r',k:'${k}',d:1})">+</button></span></div>`).join('')+`<p>คะแนนรวมมุมการ์ด: <b style="color:${tot>0?'#7cf':'#f77'}">${sgn(tot)}</b> (ยิ่งใกล้ 0 ยิ่งสมดุล)</p>${cnt>np?'<p style="color:#f77">จำนวนบทบาทมากกว่าผู้เล่น</p>':''}<button class=p ${cnt<=np&&c.wolf>0&&np>=3?'':'disabled'} onclick="tx({t:'go'})">เริ่มเกม</button></div>`}
 else h+=`<div class=box>รอโฮสต์เริ่มเกม...<br>บทบาท: ${Object.keys(c).filter(k=>c[k]).map(k=>R[k][1]+R[k][0]+'×'+c[k]).join(' ')}</div>`;
 return $('a').innerHTML=h}
@@ -131,17 +131,17 @@ const pk=(id,n)=>`<button class="pk ${sel.includes(id)?'s':''}" onclick="pickx('
 if(q&&q.k=='pick')h+=`<div class=box><b>${q.t}${q.n>1?` (${sel.length}/${q.n})`:''}</b>`+q.o.map(i=>pk(i,q.n)).join('')+`<button class=p ${sel.length==q.n?'':'disabled'} onclick="ok()">ยืนยัน</button>${q.skip?`<button onclick="sel=['-'];ok()">ข้าม</button>`:''}</div>`;
 else if(q&&q.k=='witch')h+=`<div class=box><b>🧪 แม่มด</b><p>เหยื่อของหมาป่าคืนนี้: ${q.v||'ไม่มี'}</p>`+(q.h?`<button class="${wh?'p':''}" onclick="wh=!wh;render()">ชุบชีวิตเหยื่อ ${wh?'✓':''}</button>`:'')+(q.p?'<p>วางยาพิษ (เลือกหรือไม่เลือกก็ได้):</p>'+q.o.map(i=>pk(i,1)).join(''):'')+`<button class=p onclick="ok()">ยืนยัน</button></div>`;
 else if(!s.mod&&me.alive){const my=s.ps.find(x=>x.id==me.id);
-if(ph=='night')h+='<div class=box>🌙 หลับตาลง รอจนถึงเช้า (ถ้าถึงตาคุณ ตัวเลือกจะขึ้นที่นี่)</div>';
+if(ph=='night')h+=`<div class=box>${me.sent?'✅ ส่งการกระทำแล้ว':'🌙 หลับตาลง'} รอจนถึงเช้า (ถ้าถึงตาคุณ ตัวเลือกจะขึ้นที่นี่)</div>`;
 if(ph=='day')h+=`<button class=p onclick="tx({t:'rdy'})">✋ ${my.rd?'ยกเลิก':'พร้อมโหวตแล้ว'} (เกินครึ่งจะเริ่มโหวต)</button>`;
 if(ph=='vote')h+='<div class=box>โหวตแล้ว รอคนอื่น...</div>'}
 h+='<div class=box>'+pl.map(x=>`<div class=row><span class="${x.alive?'':'dead'}">${x.name}${x.on?'':' 📴'}${x.rd?' ✋':''}</span><span>${x.r?R[x.r][1]+R[x.r][0]:''} ${x.ac}</span></div>`).join('')+'</div>';
 if(s.vt)h+='<div class=box><b>โหวตแบบเปิดเผย</b>'+Object.entries(s.vt).map(([a,b])=>`<div>${nm(a)} → ${b=='-'?'ข้าม':nm(b)}</div>`).join('')+'</div>';
 if(s.log.length)h+='<div class=box>'+s.log.join('<br>')+'</div>';
-if(s.mod&&ph!='end')h+=`<button class=p onclick="tx({t:'mod'})">⏭️ ไปขั้นตอนต่อไป (${{night:'จบคืน',day:'เริ่มโหวต',vote:'นับคะแนน',hunter:'ข้าม'}[ph]})</button>`;
+if(isHost&&ph!='end')h+=`<div class=box><b>ปุ่มโฮสต์</b><br><button class=p onclick="tx({t:'mod'})">⏭️ ${{night:'เข้าสู่เช้า',day:'เปิดโหวต',vote:'นับคะแนน',hunter:'ข้ามการยิง'}[ph]}</button>${s.dl&&(ph=='day'||ph=='vote')?`<button onclick="tx({t:'tm',d:3e4})">⏱️ +30 วินาที</button><button onclick="tx({t:'tm',d:6e4})">⏱️ +1 นาที</button>`:''}</div>`;
 if(ph=='end'&&isHost)h+=`<button class=p onclick="tx({t:'again'})">เล่นอีกรอบ</button>`;
 $('a').innerHTML=h}
 function pickx(id,n){if(sel.includes(id))sel=sel.filter(x=>x!=id);else if(sel.length<n)sel.push(id);else if(n==1)sel=[id];render()}
 function ok(){tx({t:'a',v:S.pr.k=='witch'?{h:wh?1:0,p:sel[0]||0}:sel});sel=[];wh=0}
-setInterval(()=>{const e=$('t');if(e)e.textContent=S&&S.dl?(r=>(r/60|0)+':'+String(r%60).padStart(2,'0'))(Math.max(0,Math.round((S.dl-Date.now())/1000))):''},1000);
+let vb=0;setInterval(()=>{const e=$('t');if(!e)return;if(!S||!S.dl){e.textContent='';return}const r=Math.max(0,Math.round((S.dl-Date.now())/1000));e.textContent=r?(r/60|0)+':'+String(r%60).padStart(2,'0'):'หมดเวลา!';e.style.color=r<=10?'#f55':'';if(!r&&vb!=S.dl){vb=S.dl;navigator.vibrate&&navigator.vibrate(400)}},1000);
 home();
 </script></body></html>
