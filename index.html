@@ -73,6 +73,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:600;m
 .zoomov{position:fixed;inset:0;z-index:50;background:#000c;display:grid;place-items:center;padding:20px;cursor:zoom-out}
 .zoomov img{max-width:min(92vw,420px);max-height:86vh;border-radius:16px;box-shadow:0 10px 40px #000a}
 .rcard .cardimg{display:none}.rcard.hasimg{padding:0;background:none;border:0;box-shadow:none;max-width:340px;margin-inline:auto}.rcard.hasimg>*:not(.cardimg):not(.warnbox){display:none}.rcard.hasimg .cardimg{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 8px 28px #0008}
+.mctl{display:flex;flex-wrap:wrap;gap:6px;padding:2px 2px 12px}.chip{font:inherit;font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;cursor:pointer}.chip.on{background:var(--accent);color:#fff;border-color:transparent}.chip.kill{border-color:#b3261e;color:#b3261e}.chip.rev{border-color:#2e7d32;color:#2e7d32}
 </style></head><body><div id="hostgone" hidden>⚠️ ผู้ดำเนินเกมหลุดการเชื่อมต่อ เกมถูกบันทึกไว้แล้ว รอผู้ดำเนินเกมกลับเข้ามา (ใช้ปุ่ม “กลับเข้าห้อง” ในหน้าแรก)</div><main id="app"></main><script>
 /* ================= roles: values (+ village / − wolf) read from the Thai booklet cards ================= */
 /* t: v = village side, w = wolf side, x = third party. v = card balance number. Edit freely. */
@@ -551,9 +552,14 @@ function modCmd(d){
     case "vote": if(G&&G.phase==="day"){ startVote(G); afterPhase(); } break;
     case "endvote": if(G&&G.phase==="vote"){ endVote(G); afterPhase(); } break;
     case "shoot": if(G&&G.phase==="hunter"){ hunterShoot(G,d.v==null?null:+d.v); afterPhase(); } break;
-    case "again": if(H.phase==="over"||H.phase==="intro"||H.phase==="deal"||G){ H.G=null; H.phase="lobby"; H.players=H.players.filter((p,k)=>k===0||p.connected); pushAll(); } break;
+    case "note": if(G&&H.phase!=="lobby"&&G.p[+d.p]&&["mute","bite","save","dead"].includes(d.k)){ H.notes=H.notes||{}; const o=H.notes[+d.p]=H.notes[+d.p]||{}; o[d.k]=o[d.k]?0:1; if(!o.mute&&!o.bite&&!o.save&&!o.dead) delete H.notes[+d.p]; pushAll(); } break;
+    case "nclear": H.notes={}; pushAll(); break;
+    case "fkill": if(G&&["night","day","vote","voteres","hunter"].includes(G.phase)){ const p=+d.p; if(G.p[p]&&G.p[p].alive){ const before=G.pub.length; kill(G,p,"ผู้ดำเนินเกมสั่ง",true); modPub(G,G.pub.slice(before)); if(G.phase!=="hunter") settle(G,G.phase); pushAll(); } } break;
+    case "frev": if(G&&["night","day","vote","voteres","hunter"].includes(G.phase)){ const p=+d.p, q=G.p[p]; if(q&&!q.alive){ q.alive=true; q.ghost=false; delete q.f.cause; G.deaths=(G.deaths||[]).filter(x=>x!==p); G.hunterQ=G.hunterQ.filter(x=>x!==p); const m="✨ "+nm(G,p)+" ได้รับการชุบชีวิตโดยผู้ดำเนินเกม"; L(G,m); modPub(G,[m]); if(G.phase==="hunter"&&!G.hunterQ.length) settle(G,G.after); pushAll(); } } break;
+    case "again": if(H.phase==="over"||H.phase==="intro"||H.phase==="deal"||G){ H.G=null; H.notes={}; H.phase="lobby"; H.players=H.players.filter((p,k)=>k===0||p.connected); pushAll(); } break;
   }
 }
+function modPub(G,a){ if(!a.length) return; if(G.phase==="day") G.dawn=(G.dawn||[]).concat(a); else if(G.phase==="vote") G.voteIntro=(G.voteIntro||[]).concat(a); else if(G.phase==="voteres"&&G.voteres) G.voteres.extra=(G.voteres.extra||[]).concat(a); else if(G.phase==="hunter"){ if(G.after==="day") G.dawn=(G.dawn||[]).concat(a); else if(G.after==="vote") G.voteIntro=(G.voteIntro||[]).concat(a); else if(G.after==="voteres"&&G.voteres) G.voteres.extra=(G.voteres.extra||[]).concat(a); } }
 function afterPhase(){ const G=H.G; if(G.phase==="day") H.dayEnd=Date.now()+H.settings.day*60000; H.wolfChat=[]; pushAll(); }
 function hostStart(){
   if(H.phase!=="lobby") return;
@@ -561,7 +567,7 @@ function hostStart(){
   const n=H.players.length-1, c=H.settings.counts, ids=[]; Object.keys(c).forEach(k=>{ for(let j=0;j<c[k];j++) ids.push(k); });
   if(n<4){ toast("ต้องมีผู้เล่นอย่างน้อย 4 คน (ไม่นับผู้ดำเนินเกม)"); return; }
   if(ids.length!==n){ toast("จำนวนไพ่ ("+ids.length+") ต้องเท่ากับจำนวนผู้เล่น ("+n+")"); return; }
-  H.G=newGame(H.players.slice(1).map(p=>p.name),ids,{reveal:H.settings.reveal}); H.phase="deal"; H.ready=new Set(); H.wolfChat=[]; pushAll();
+  H.G=newGame(H.players.slice(1).map(p=>p.name),ids,{reveal:H.settings.reveal}); H.phase="deal"; H.notes={}; H.ready=new Set(); H.wolfChat=[]; pushAll();
 }
 
 /* ----- views ----- */
@@ -602,7 +608,7 @@ function viewFor(i){
     votedN:Object.keys(G.votes).length, voteTot:G.phase==="vote"?eligibleVoters(G).filter(j=>!["idiot","pacifist"].includes(G.p[j].role)).length:0,
     hunterWho:G.hunterQ.length?G.p[G.hunterQ[0]].name:null, readyN:H.ready.size, readyTot:G.N, ghostChars:G.ghostChars&&G.night>=1?G.ghostChars.slice(0,G.night):null };
   if(G.over){ base.over={ w:G.over.w, text:G.over.text, extra:G.over.extra, win:winnersOf(G), roles:G.p.map(p=>({n:p.name,r:RM[p.role].th,e:RM[p.role].e,alive:p.alive})) }; }
-  if(mod){ base.mod={ roles:G.p.map((p,k)=>({n:p.name,id:p.role,r:RM[p.role].th,e:RM[p.role].e,alive:p.alive,tags:modTags(G,k)})), waiting:G.phase==="night"?pendingActors(G):[], wolfSplit:G.phase==="night"&&nightDone(G)&&!nightReady(G), log:G.log.slice(-40), ready:[...H.ready], wolfChat:H.wolfChat, sum:deckSum(H.settings.counts).sum, hunterSeat:G.hunterQ.length?G.hunterQ[0]:null };
+  if(mod){ base.mod={ roles:G.p.map((p,k)=>({n:p.name,id:p.role,r:RM[p.role].th,e:RM[p.role].e,alive:p.alive,tags:modTags(G,k)})), waiting:G.phase==="night"?pendingActors(G):[], wolfSplit:G.phase==="night"&&nightDone(G)&&!nightReady(G), log:G.log.slice(-40), ready:[...H.ready], wolfChat:H.wolfChat, notes:H.notes||{}, sum:deckSum(H.settings.counts).sum, hunterSeat:G.hunterQ.length?G.hunterQ[0]:null };
     return base; }
   const p=G.p[s]; base.me=s;
   base.priv={ role:p.role, rn:RM[p.role].th, e:RM[p.role].e, d:RM[p.role].d, v:RM[p.role].v, t:RM[p.role].t, alive:p.alive, ghost:p.ghost,
@@ -685,11 +691,15 @@ function fmt(ms){ ms=Math.max(0,ms); const s=Math.ceil(ms/1000); return Math.flo
 const timer=(end,cls)=>'<span class="clock '+(cls||"")+'" data-end="'+end+'">'+fmt(end-Date.now())+'</span>';
 setInterval(()=>{ document.querySelectorAll("[data-end]").forEach(el=>{ const r=+el.dataset.end-Date.now(); el.textContent=fmt(r); el.classList.toggle("low",r<10000); }); },250);
 
+const NOTE_L={mute:"🤐 ห้ามพูด",bite:"🐺 ถูกกัด",save:"🛡️ ถูกเซฟ",dead:"💀 จดว่าตาย"};
 function roster(v,mod){
+  const can=mod&&v.mod&&["night","day","vote","voteres","hunter"].includes(v.g), nts=(v.mod&&v.mod.notes)||{};
   return '<div class="roster">'+v.players.map((p,i)=>{
     let st=p.alive?"":"dead"; const tg=[]; if(p.hexed) tg.push("🧙‍♀️ถูกสาป"); if(p.muted) tg.push("🤫ใบ้"); if(!p.alive&&p.role) tg.push((p.e||"")+" "+p.role); if(!p.conn&&!p.ghost&&p.alive) tg.push("⚠️หลุด");
-    const m=mod&&v.mod?v.mod.roles[i]:null;
-    return '<div class="pl '+st+'"><span class="nm">'+(p.alive?"🟢":p.ghost?"👻":"💀")+" "+esc(p.name)+(v.me===i?" (คุณ)":"")+'</span><span class="tg">'+(m?m.e+" "+esc(m.r)+(m.tags.length?" · "+esc(m.tags.join(" ")):""):esc(tg.join(" · ")))+'</span></div>'; }).join("")+'</div>';
+    const m=mod&&v.mod?v.mod.roles[i]:null, nt=mod&&nts[i]?Object.keys(NOTE_L).filter(k=>nts[i][k]).map(k=>NOTE_L[k]):[];
+    const row='<div class="pl '+st+'"><span class="nm">'+(p.alive?"🟢":p.ghost?"👻":"💀")+" "+esc(p.name)+(v.me===i?" (คุณ)":"")+'</span><span class="tg">'+(m?m.e+" "+esc(m.r)+(m.tags.length?" · "+esc(m.tags.join(" ")):"")+(nt.length?" · "+nt.join(" "):""):esc(tg.join(" · ")))+'</span></div>';
+    const ctl=can?'<div class="mctl">'+Object.keys(NOTE_L).map(k=>'<button class="chip'+(nts[i]&&nts[i][k]?" on":"")+'" data-a="note" data-p="'+i+'" data-k="'+k+'">'+NOTE_L[k]+'</button>').join("")+(p.alive?'<button class="chip kill" data-a="mkill" data-p="'+i+'" data-n="'+esc(p.name)+'">สั่งตายจริง</button>':'<button class="chip rev" data-a="mrev" data-p="'+i+'" data-n="'+esc(p.name)+'">ชุบชีวิต</button>')+'</div>':"";
+    return '<div class="plw">'+row+ctl+'</div>'; }).join("")+(can&&Object.keys(nts).length?'<button class="btn ghost block" data-a="nclear">ล้างป้ายจดบันทึกทั้งหมด</button>':"")+'</div>';
 }
 function thumbFb(im){ const e=['jpg','png','webp'], i=+im.dataset.i||0; if(i<2){ im.dataset.i=i+1; im.src='images/'+im.dataset.r+'.'+e[i+1]; } else { im.parentNode.classList.add('noimg'); im.remove(); } }
 function rimg(id,sm){ const r=RM[id]; return '<span class="ri'+(sm?' sm':'')+'" data-a="zoom" data-r="'+id+'"><img data-r="'+id+'" src="images/'+id+'.jpg" alt="'+esc(r.th)+'" loading="lazy" decoding="async" onerror="thumbFb(this)"><i>'+r.e+'</i></span>'; }
@@ -833,7 +843,7 @@ $app.addEventListener("click",e=>{
     case "cnt": { const c=Object.assign({},O.lobby.settings.counts), k=b.dataset.k; c[k]=Math.max(0,Math.min(RM[k].max,(c[k]||0)+(+b.dataset.d))); if(!c[k]) delete c[k]; O.lobby.settings.counts=c; toHost({t:"cmd",c:"settings",counts:c}); render(); break; }
     case "auto": toHost({t:"cmd",c:"auto"}); break; case "start": toHost({t:"cmd",c:"start"}); break;
     case "cmd": toHost({t:"cmd",c:b.dataset.c}); break;
-    case "zoom": zoomRole(b); break; case "snd": setSound(!AUD.on); render(); break; case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
+    case "zoom": zoomRole(b); break; case "note": toHost({t:"cmd",c:"note",p:+b.dataset.p,k:b.dataset.k}); break; case "nclear": toHost({t:"cmd",c:"nclear"}); break; case "mkill": if(confirm("สั่งให้ “"+b.dataset.n+"” ตายจริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"fkill",p:+b.dataset.p}); break; case "mrev": if(confirm("ชุบชีวิต “"+b.dataset.n+"” จริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"frev",p:+b.dataset.p}); break; case "snd": setSound(!AUD.on); render(); break; case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
     case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } render(); break; }
     case "submit": { const pr=v.priv.prompt; if(pr.k==="witch") toHost({t:"act",a:{h:ui.h,x:ui.x}}); else toHost({t:"act",a:{t:ui.sel}}); break; }
     case "skip": toHost({t:"act",a:{t:[]}}); break;
