@@ -64,6 +64,13 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:600;m
 .selrow select{margin-left:8px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:20;max-width:90vw}
 #hostgone{position:fixed;top:0;left:0;right:0;z-index:50;padding:10px 14px;background:#B3261E;color:#fff;font-size:14px;text-align:center}
+.ri{flex:none;position:relative;width:60px;height:60px;border-radius:12px;overflow:hidden;background:var(--accent-soft);display:grid;place-items:center;cursor:zoom-in}
+.ri img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block}
+.ri i{display:none;font-style:normal;font-size:30px;line-height:1}.ri.noimg{cursor:default}.ri.noimg i{display:block}
+.ri.sm{width:26px;height:26px;border-radius:50%}.ri.sm i{font-size:15px}
+.rinfo{align-items:center}
+.zoomov{position:fixed;inset:0;z-index:50;background:#000c;display:grid;place-items:center;padding:20px;cursor:zoom-out}
+.zoomov img{max-width:min(92vw,420px);max-height:86vh;border-radius:16px;box-shadow:0 10px 40px #000a}
 .rcard .cardimg{display:none}.rcard.hasimg{padding:0;background:none;border:0;box-shadow:none;max-width:340px;margin-inline:auto}.rcard.hasimg>*:not(.cardimg):not(.warnbox){display:none}.rcard.hasimg .cardimg{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 8px 28px #0008}
 </style></head><body><div id="hostgone" hidden>⚠️ ผู้ดำเนินเกมหลุดการเชื่อมต่อ เกมถูกบันทึกไว้แล้ว รอผู้ดำเนินเกมกลับเข้ามา (ใช้ปุ่ม “กลับเข้าห้อง” ในหน้าแรก)</div><main id="app"></main><script>
 /* ================= roles: values (+ village / − wolf) read from the Thai booklet cards ================= */
@@ -647,6 +654,9 @@ function roster(v,mod){
     const m=mod&&v.mod?v.mod.roles[i]:null;
     return '<div class="pl '+st+'"><span class="nm">'+(p.alive?"🟢":p.ghost?"👻":"💀")+" "+esc(p.name)+(v.me===i?" (คุณ)":"")+'</span><span class="tg">'+(m?m.e+" "+esc(m.r)+(m.tags.length?" · "+esc(m.tags.join(" ")):""):esc(tg.join(" · ")))+'</span></div>'; }).join("")+'</div>';
 }
+function thumbFb(im){ const e=['jpg','png','webp'], i=+im.dataset.i||0; if(i<2){ im.dataset.i=i+1; im.src='images/'+im.dataset.r+'.'+e[i+1]; } else { im.parentNode.classList.add('noimg'); im.remove(); } }
+function rimg(id,sm){ const r=RM[id]; return '<span class="ri'+(sm?' sm':'')+'" data-a="zoom" data-r="'+id+'"><img data-r="'+id+'" src="images/'+id+'.jpg" alt="'+esc(r.th)+'" loading="lazy" decoding="async" onerror="thumbFb(this)"><i>'+r.e+'</i></span>'; }
+function zoomRole(el){ const im=el.querySelector('img'); if(!im||el.classList.contains('noimg')) return; const o=document.createElement('div'); o.className='zoomov'; o.innerHTML='<img alt="">'; o.firstChild.src=im.currentSrc||im.src; o.onclick=()=>o.remove(); document.body.appendChild(o); }
 function cardFb(im){ const e=['jpg','png','webp'], i=+im.dataset.i||0; if(i<2){ im.dataset.i=i+1; im.src='images/'+im.dataset.r+'.'+e[i+1]; } else { im.parentNode.classList.remove('hasimg'); im.remove(); } }
 function cardBlock(pv,big){
   return '<div class="rcard hasimg '+(pv.t==="w"?"wolf":pv.t==="x"?"third":"vill")+(big?" big":"")+'"><img class="cardimg" data-r="'+esc(pv.role)+'" src="images/'+esc(pv.role)+'.jpg" alt="'+esc(pv.rn)+'" onerror="cardFb(this)"><div class="em">'+pv.e+'</div><div class="rn">'+esc(pv.rn)+'</div><div class="rm">'+TEAMN[pv.t]+' · '+valChip({v:pv.v})+'</div><p>'+esc(pv.d)+'</p>'+(pv.role==="cursed"&&pv.converted?'<p class="warnbox">ตอนนี้คุณเป็นมนุษย์หมาป่าแล้ว</p>':"")+'</div>';
@@ -666,7 +676,7 @@ function vEntry(){
 function modLobby(){
   const lb=O.lobby, st=lb.settings, c=st.counts, nPl=lb.players.length-1, tot=deckSum(c).n;
   const grp=(t,title)=>'<div class="label">'+title+'</div>'+ROLES.filter(r=>t==="v"?(r.t==="v"&&r.v>0):t==="n"?(r.t==="v"&&r.v<=0):(r.t==="w"||r.t==="x")).map(r=>{ const n=c[r.id]||0;
-    return '<div class="rrow '+(n?"on":"")+'"><div class="rinfo"><span class="e">'+r.e+'</span><div><div class="rt">'+esc(r.th)+' '+valChip(r)+(UNSURE[r.id]?' <span class="q" title="'+esc(UNSURE[r.id])+'">?</span>':"")+'</div><div class="rd">'+esc(r.d)+'</div></div></div><div class="stepper"><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="-1" aria-label="ลด">−</button><span class="num">'+n+'</span><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="1" aria-label="เพิ่ม">+</button></div></div>'; }).join("");
+    return '<div class="rrow '+(n?"on":"")+'"><div class="rinfo">'+rimg(r.id)+'<div><div class="rt">'+esc(r.th)+' '+valChip(r)+(UNSURE[r.id]?' <span class="q" title="'+esc(UNSURE[r.id])+'">?</span>':"")+'</div><div class="rd">'+esc(r.d)+'</div></div></div><div class="stepper"><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="-1" aria-label="ลด">−</button><span class="num">'+n+'</span><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="1" aria-label="เพิ่ม">+</button></div></div>'; }).join("");
   const warns=[]; if(c.apprentice&&!c.seer) warns.push("มีศิษย์เทพพยากรณ์แต่ไม่มีเทพพยากรณ์"); if(c.mason===1) warns.push("เมสันควรมีอย่างน้อย 2 คน"); if(!(c.werewolf||c.lone||c.cub)) warns.push("ยังไม่มีมนุษย์หมาป่าตัวที่ฆ่าได้");
   return head("ห้องรอ — คุณคือผู้ดำเนินเกม")+invite()+
   '<div class="panel"><div class="label">ผู้เล่น ('+nPl+' คน)</div>'+(nPl?'<div class="chips">'+lb.players.slice(1).map(p=>'<span class="chip">'+(p.connected?"🟢":"⚪")+" "+esc(p.name)+'</span>').join("")+'</div>':'<div class="hint">รอเพื่อนเข้าร่วม… ส่งลิงก์หรือรหัสด้านบน (ผู้ดำเนินเกมไม่นับเป็นผู้เล่น)</div>')+'</div>'+
@@ -683,7 +693,7 @@ function invite(){ const url=location.origin+location.pathname+"?room="+O.code; 
 function plLobby(){
   const lb=O.lobby, st=lb.settings, c=st.counts, tot=deckSum(c).n;
   return head("ห้องรอ")+invite()+'<div class="panel"><div class="label">ผู้เล่นในห้อง</div><div class="chips">'+lb.players.map((p,i)=>'<span class="chip">'+(i===0?"🎙️ ":p.connected?"🟢 ":"⚪ ")+esc(p.name)+(i===0?" (ผู้ดำเนินเกม)":"")+(i===O.me?" ← คุณ":"")+'</span>').join("")+'</div><div class="hint">รอผู้ดำเนินเกมเลือกไพ่และเริ่มเกม</div></div>'+
-   '<div class="panel"><div class="label">ไพ่ในเกมนี้ ('+tot+' ใบ)</div>'+balance(c)+'<div class="chips">'+Object.keys(c).map(k=>'<span class="chip">'+RM[k].e+' '+esc(RM[k].th)+(c[k]>1?" ×"+c[k]:"")+' '+sg(RM[k].v)+'</span>').join("")+'</div></div><button class="btn ghost block" data-a="leave">ออกจากห้อง</button>';
+   '<div class="panel"><div class="label">ไพ่ในเกมนี้ ('+tot+' ใบ)</div>'+balance(c)+'<div class="chips">'+Object.keys(c).map(k=>'<span class="chip row" style="gap:6px;flex-wrap:nowrap">'+rimg(k,1)+esc(RM[k].th)+(c[k]>1?" ×"+c[k]:"")+' '+sg(RM[k].v)+'</span>').join("")+'</div></div><button class="btn ghost block" data-a="leave">ออกจากห้อง</button>';
 }
 
 /* ---------- moderator ---------- */
@@ -785,7 +795,7 @@ $app.addEventListener("click",e=>{
     case "cnt": { const c=Object.assign({},O.lobby.settings.counts), k=b.dataset.k; c[k]=Math.max(0,Math.min(RM[k].max,(c[k]||0)+(+b.dataset.d))); if(!c[k]) delete c[k]; O.lobby.settings.counts=c; toHost({t:"cmd",c:"settings",counts:c}); render(); break; }
     case "auto": toHost({t:"cmd",c:"auto"}); break; case "start": toHost({t:"cmd",c:"start"}); break;
     case "cmd": toHost({t:"cmd",c:b.dataset.c}); break;
-    case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
+    case "zoom": zoomRole(b); break; case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
     case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } render(); break; }
     case "submit": { const pr=v.priv.prompt; if(pr.k==="witch") toHost({t:"act",a:{h:ui.h,x:ui.x}}); else toHost({t:"act",a:{t:ui.sel}}); break; }
     case "skip": toHost({t:"act",a:{t:[]}}); break;
