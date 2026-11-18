@@ -69,6 +69,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:600;m
 .ri i{display:none;font-style:normal;font-size:30px;line-height:1}.ri.noimg{cursor:default}.ri.noimg i{display:block}
 .ri.sm{width:26px;height:26px;border-radius:50%}.ri.sm i{font-size:15px}
 .rinfo{align-items:center}
+.sndbtn{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:22px;line-height:1;z-index:40;box-shadow:0 4px 14px #0005}
 .zoomov{position:fixed;inset:0;z-index:50;background:#000c;display:grid;place-items:center;padding:20px;cursor:zoom-out}
 .zoomov img{max-width:min(92vw,420px);max-height:86vh;border-radius:16px;box-shadow:0 10px 40px #000a}
 .rcard .cardimg{display:none}.rcard.hasimg{padding:0;background:none;border:0;box-shadow:none;max-width:340px;margin-inline:auto}.rcard.hasimg>*:not(.cardimg):not(.warnbox){display:none}.rcard.hasimg .cardimg{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 8px 28px #0008}
@@ -624,8 +625,44 @@ function clientRecv(m){
 }
 let lastSfx="";
 function sfxFor(v){ const k=v.phase+"|"+v.night+"|"+v.g+"|"+(v.dawn?v.dawn.length:0)+"|"+(v.voteres?1:0); if(k===lastSfx) return; lastSfx=k;
-  if(v.phase==="night") tone([220,165],.25); else if(v.g==="day") tone([392,523],.18); else if(v.g==="vote") tone([330,330],.12); else if(v.phase==="over") tone([523,659,784],.2); else if(v.phase==="intro") tone([440],.12); }
-let AC=null; function tone(fr,d){ try{ if(!O.sound&&O.sound!==undefined) return; AC=AC||new (window.AudioContext||window.webkitAudioContext)(); fr.forEach((f,k)=>{ const o=AC.createOscillator(),g=AC.createGain(); o.frequency.value=f; o.connect(g); g.connect(AC.destination); const t=AC.currentTime+k*d; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.18,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+d*.95); o.start(t); o.stop(t+d); }); }catch(e){} }
+  if(v.phase==="night") tone([220,165],.25); else if(v.g==="day"){ if(!AUD.ok.dawn) tone([392,523],.18); } else if(v.g==="vote") tone([330,330],.12); else if(v.phase==="over") tone([523,659,784],.2); else if(v.phase==="intro") tone([440],.12); }
+let AC=null; function tone(fr,d){ try{ if(!AUD.on||(!O.sound&&O.sound!==undefined)) return; AC=AC||new (window.AudioContext||window.webkitAudioContext)(); fr.forEach((f,k)=>{ const o=AC.createOscillator(),g=AC.createGain(); o.frequency.value=f; o.connect(g); g.connect(AC.destination); const t=AC.currentTime+k*d; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.18,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+d*.95); o.start(t); o.stop(t+d); }); }catch(e){} }
+/* ===== เสียงพื้นหลัง + เสียงเอฟเฟกต์จากไฟล์ในโฟลเดอร์ sounds/ (ไม่มีไฟล์ = เงียบ ไม่พัง) =====
+   bg-lobby.mp3 (ห้องรอ/แจกไพ่)  bg-night.mp3 (กลางคืน)  bg-day.mp3 (กลางวัน/โหวต)  dawn.mp3 (เสียงไก่ขันตอนเช้า)  end.mp3 (จบเกม)
+   รองรับ .mp3 .ogg .m4a  เสียงเล่นบนเครื่องของแต่ละคนเอง ปรับเสียงได้ที่ AUD.vol */
+const AUD={ files:{lobby:"bg-lobby",night:"bg-night",day:"bg-day",dawn:"dawn",end:"end"}, el:{}, bad:{}, ok:{}, cur:null, prevG:null, on:true, pending:false, vol:{bg:.35,fx:.9} };
+try{ AUD.on=localStorage.getItem("ww-snd")!=="0"; }catch(e){}
+function audEl(name){
+  if(AUD.bad[name]) return null; let a=AUD.el[name];
+  if(!a){ const ex=["mp3","ogg","m4a"]; a=new Audio(); a.preload="auto"; a.dataset.t="0"; a.loop=(name==="lobby"||name==="night"||name==="day");
+    const set=()=>{ a.src="sounds/"+AUD.files[name]+"."+ex[+a.dataset.t]; };
+    a.addEventListener("error",()=>{ const i=+a.dataset.t+1; if(i<ex.length){ a.dataset.t=i; set(); } else AUD.bad[name]=1; });
+    a.addEventListener("loadedmetadata",()=>{ AUD.ok[name]=1; },{once:true});
+    set(); AUD.el[name]=a; }
+  return a;
+}
+function fade(a,to,ms,stop){ clearInterval(a._f); const from=a.volume, t0=Date.now();
+  a._f=setInterval(()=>{ const k=Math.min(1,(Date.now()-t0)/ms); a.volume=Math.max(0,Math.min(1,from+(to-from)*k)); if(k>=1){ clearInterval(a._f); if(stop) a.pause(); } },50); }
+function bgPlay(name){
+  const old=AUD.cur; if(old===name) return; AUD.cur=name;
+  if(old&&AUD.el[old]) fade(AUD.el[old],0,700,true);
+  if(name&&AUD.on){ const a=audEl(name); if(a){ a.volume=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{ AUD.pending=true; }); fade(a,AUD.vol.bg,900,false); } }
+}
+function fx(name){ if(!AUD.on) return; const a=audEl(name); if(!a) return; try{ a.loop=false; a.currentTime=0; a.volume=AUD.vol.fx; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} }
+function audioFor(){
+  const v=O.view; let bg=null, g=null;
+  if(O.phase==="entry"||O.phase==="connecting") bg=null;
+  else if(!v) bg="lobby";
+  else { g=v.phase==="over"?"over":v.g;
+    bg=g==="over"?null:g==="night"?"night":(g==="day"||g==="vote"||g==="voteres"||g==="hunter")?"day":"lobby"; }
+  if(g!==AUD.prevG){ if(AUD.prevG==="night"&&g&&g!=="night"&&g!=="over") fx("dawn"); if(g==="over") fx("end"); AUD.prevG=g; }
+  bgPlay(bg);
+}
+function setSound(on){ AUD.on=on; try{ localStorage.setItem("ww-snd",on?"1":"0"); }catch(e){}
+  if(!on){ Object.keys(AUD.el).forEach(k=>{ clearInterval(AUD.el[k]._f); AUD.el[k].pause(); }); }
+  else { const n=AUD.cur; AUD.cur=null; bgPlay(n); } }
+document.addEventListener("pointerdown",()=>{ if(!AUD.on) return; const a=AUD.cur&&AUD.el[AUD.cur]; if(AUD.pending||(a&&a.paused)){ AUD.pending=false; const n=AUD.cur; AUD.cur=null; bgPlay(n); } },{passive:true});
+const sndBtn=()=>'<button class="sndbtn" data-a="snd" aria-label="'+(AUD.on?"ปิดเสียง":"เปิดเสียง")+'" aria-pressed="'+AUD.on+'">'+(AUD.on?"🔊":"🔇")+'</button>';
 setInterval(()=>{ if(O.role==="host"&&H&&H.G&&H.phase==="night"&&H.nightAuto&&Date.now()>H.nightAuto&&H.G.phase==="night"&&nightReady(H.G)){ H.nightAuto=0; endNight(H.G); afterPhase(); } },400);
 /* ================= UI ================= */
 const $app=document.getElementById("app");
@@ -781,6 +818,7 @@ function render(){
   else if(O.view){ html=O.view.mod?vMod(O.view):vPlayer(O.view); }
   else if(O.lobby) html=O.role==="host"?modLobby():plLobby();
   else html='<div class="panel center">กำลังเชื่อมต่อ…</div>';
+  audioFor(); html+=sndBtn();
   const y=window.scrollY; $app.innerHTML=html; window.scrollTo(0,y);
 }
 $app.addEventListener("input",e=>{ const t=e.target; if(t.id==="nm") O.name=t.value; else if(t.id==="cd"){ O.joinCode=t.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4); t.value=O.joinCode; } else if(t.id==="gtxt") O.ui.txt=t.value; });
@@ -795,7 +833,7 @@ $app.addEventListener("click",e=>{
     case "cnt": { const c=Object.assign({},O.lobby.settings.counts), k=b.dataset.k; c[k]=Math.max(0,Math.min(RM[k].max,(c[k]||0)+(+b.dataset.d))); if(!c[k]) delete c[k]; O.lobby.settings.counts=c; toHost({t:"cmd",c:"settings",counts:c}); render(); break; }
     case "auto": toHost({t:"cmd",c:"auto"}); break; case "start": toHost({t:"cmd",c:"start"}); break;
     case "cmd": toHost({t:"cmd",c:b.dataset.c}); break;
-    case "zoom": zoomRole(b); break; case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
+    case "zoom": zoomRole(b); break; case "snd": setSound(!AUD.on); render(); break; case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
     case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } render(); break; }
     case "submit": { const pr=v.priv.prompt; if(pr.k==="witch") toHost({t:"act",a:{h:ui.h,x:ui.x}}); else toHost({t:"act",a:{t:ui.sel}}); break; }
     case "skip": toHost({t:"act",a:{t:[]}}); break;
