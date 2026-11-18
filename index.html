@@ -1,174 +1,771 @@
-<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>เกมล่าปริศนา มนุษย์หมาป่า</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>มนุษย์หมาป่า</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
-body{margin:0 auto;max-width:560px;padding:12px;background:#0b0c10;color:#e6e3dc;font-family:"Sarabun","Noto Sans Thai",system-ui,sans-serif}
-h1,h2{text-align:center;margin:8px 0;letter-spacing:.02em}h1{font-size:28px;color:#d8d2c0}
-button{background:#23252e;color:#fff;border:1px solid #4a4d5a;border-radius:6px;padding:10px 14px;margin:3px;font:inherit}
-button.p{background:#7a1f1f;border-color:#a33}button:disabled{opacity:.35}
-input{padding:10px;border-radius:6px;border:1px solid #4a4d5a;background:#14151b;color:#fff;font:inherit;width:calc(100% - 22px);margin-bottom:6px}
-.box{background:#14151b;border:1px solid #2c2e38;border-radius:6px;padding:10px;margin:8px 0}
-.card{border:3px solid #2f6fba;border-radius:10px;padding:12px 12px 34px;text-align:center;position:relative;background:#0f1b2c}
-.card.w{border-color:#b53030;background:#2b1111}.card.x{border-color:#b8862e;background:#2a2010}
-.card .i{font-size:56px}.card .c{position:absolute;right:12px;bottom:6px;font-size:22px;font-weight:700}
-.pk{display:block;width:calc(100% - 6px);text-align:left}.pk.s{background:#2f6fba}
-.row{display:flex;justify-content:space-between;gap:8px;padding:3px 0}.dead{opacity:.55;text-decoration:line-through}
-.card svg{display:block;margin:auto}</style></head><body><button id=snd style="position:fixed;top:6px;right:6px;z-index:9" onclick="tmute(this)">เสียง: เปิด</button><div id="a"></div><script>
-const R={
-villager:['ชาวบ้าน','🧑‍🌾',1,'v','หาและกำจัดมนุษย์หมาป่าให้หมด'],
-wolf:['มนุษย์หมาป่า','🐺',-6,'w','ทุกคืนเลือกเหยื่อร่วมกับพวกเดียวกัน กลางวันต้องแสร้งเป็นชาวบ้าน'],
-seer:['เทพพยากรณ์','🔮',7,'v','ทุกคืนตรวจผู้เล่น 1 คนว่าเป็นมนุษย์หมาป่าหรือไม่'],
-guard:['บอดี้การ์ด','🛡️',3,'v','ทุกคืนคุ้มครอง 1 คนไม่ให้ถูกกำจัด (คุ้มครองตัวเองไม่ได้ และห้ามซ้ำคนเดิมติดกัน)'],
-witch:['แม่มด','🧪',4,'v','มียาชุบชีวิต 1 ขวดและยาพิษ 1 ขวด ใช้ได้ขวดละครั้งทั้งเกม'],
-hunter:['นายพราน','🏹',3,'v','เมื่อถูกกำจัด ยิงผู้เล่นอีก 1 คนทันที'],
-cupid:['กามเทพ','💘',-3,'v','คืนแรกเลือกคู่ชีวิต 2 คน คนหนึ่งตาย อีกคนตายตาม'],
-mayor:['นายกเทศมนตรี','🎩',2,'v','เสียงโหวตของคุณนับเป็น 2 เสียง'],
-prince:['เจ้าชาย','👑',3,'v','ถ้าถูกโหวตกำจัด จะเปิดเผยตัวและรอดชีวิต (ครั้งเดียว)'],
-tanner:['ยาจก','🃏',-2,'x','คุณชนะก็ต่อเมื่อถูกโหวตกำจัดเท่านั้น']};
-const $=i=>document.getElementById(i),esc=s=>s.replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
-let peer,conn,isHost,G,S,sel=[],wh=0,hid=0,sig='',T;
-const P=id=>G.ps.find(p=>p.id==id),pl=()=>G.ps.filter(p=>!(G.cfg.mod&&p.id=='host')),nmv=()=>esc($('nm').value.trim().slice(0,12));
-// ---------- เครือข่าย ----------
-function home(){$('a').innerHTML=`<h1>🐺 เกมล่าปริศนา<br>มนุษย์หมาป่า</h1><div class=box><input id=nm placeholder="ชื่อของคุณ"><button class=p onclick="mk()">สร้างห้อง</button></div><div class=box><input id=cd placeholder="รหัสห้อง 4 ตัวอักษร"><button onclick="jn()">เข้าห้อง</button></div>`}
-function mk(t=0){const n=nmv();if(!n)return;const code=Array.from({length:4},()=>'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.random()*23|0]).join('');
-peer=new Peer('wwth-'+code);
-peer.on('error',e=>{if(e.type=='unavailable-id'&&t<5)mk(t+1);else alert('เชื่อมต่อไม่ได้: '+e.type)});
-peer.on('open',()=>{isHost=1;G={ph:'lobby',n:0,k:0,log:[],sub:{},votes:{},code,cfg:{r:{wolf:1,seer:1},mod:0,sec:1,it:3},ps:[{id:'host',name:n,alive:true,note:[]}]};up()});
-peer.on('connection',c=>{c.on('data',m=>onMsg(c,m));c.on('close',()=>{const p=G.ps.find(q=>q.conn==c);if(p){p.conn=null;if(G.ph=='lobby')G.ps=G.ps.filter(q=>q!=p);up()}})})}
-function jn(){const n=nmv(),c=$('cd').value.trim().toUpperCase();if(!n||!c)return;peer=new Peer();
-peer.on('error',e=>alert('เข้าห้องไม่ได้: '+e.type));
-peer.on('open',()=>{conn=peer.connect('wwth-'+c,{reliable:true});conn.on('open',()=>conn.send({t:'join',n}));conn.on('data',v=>v.err?alert(v.err):onState(v));conn.on('close',()=>alert('หลุดจากห้อง รีเฟรชหน้าแล้วเข้าใหม่ด้วยชื่อเดิมเพื่อกลับเข้าเกม'))})}
-function onMsg(c,m){if(m.t=='join'){let p=G.ps.find(q=>q.name==m.n);
-if(p&&p.conn&&p.conn.open&&p.conn!=c)return c.send({err:'ชื่อนี้ถูกใช้อยู่'});
-if(!p){if(G.ph!='lobby')return c.send({err:'เกมเริ่มไปแล้ว ใช้ชื่อเดิมเพื่อกลับเข้าเกม'});p={id:'p'+(++G.k),name:m.n,alive:true,note:[]};G.ps.push(p)}
-p.conn=c;c.pid=p.id;up()}else if(c.pid)handle(c.pid,m)}
-function tx(m){isHost?handle('host',m):conn.send(m)}
-function up(){G.ps.forEach(p=>{const v=vw(p);if(p.id=='host')onState(v);else if(p.conn&&p.conn.open)p.conn.send(v)})}
-let lj;function onState(v){const j=JSON.stringify(v);if(j==lj)return;lj=j;S=v;snd(v);const g=v.ph+v.n+(v.pr?v.pr.t:'');if(g!=sig){sig=g;sel=[];wh=0}render()}
-// ---------- ตรรกะเกม (โฮสต์) ----------
-function handle(id,m){const H=id=='host',p=P(id);
-if(H&&G.ph=='lobby'){if(m.t=='r')G.cfg.r[m.k]=Math.max(0,(G.cfg.r[m.k]||0)+m.d);if(m.t=='tg')G.cfg[m.k]=!G.cfg[m.k];if(m.t=='it')G.cfg.it=Math.min(5,Math.max(2,G.cfg.it+m.d));if(m.t=='go')start()}
-if(m.t=='a'&&p)act(p,m.v);
-if(m.t=='rdy'&&(G.ph=='day'||G.ph=='intro')&&p&&p.alive){p.rdy=!p.rdy;const a=pl().filter(q=>q.alive);if(a.filter(q=>q.rdy).length>a.length/2)G.ph=='intro'?toNight():vote()}
-if(H&&m.t=='mod')modGo();if(H&&m.t=='tm'&&G.dl&&(G.ph=='day'||G.ph=='vote'||G.ph=='intro')){G.dl=Math.max(Date.now()+5e3,G.dl+m.d);tm()}if(H&&m.t=='kick'&&G.ph=='lobby'){const k=P(m.id);if(k&&k.id!='host'){if(k.conn)k.conn.close();G.ps=G.ps.filter(q=>q!=k)}}
-if(H&&G.ph=='end'&&m.t=='again'){G.ph='lobby';G.win=0}
-up()}
-function start(){const pp=pl(),c=G.cfg.r,d=[];for(const k in c)for(let i=0;i<c[k];i++)d.push(k);
-while(d.length<pp.length)d.push('villager');if(d.length>pp.length||!d.includes('wolf')||pp.length<3)return;
-for(let i=d.length;i>1;){const j=Math.random()*i--|0;[d[i],d[j]]=[d[j],d[i]]}
-pp.forEach((p,i)=>Object.assign(p,{role:d[i],alive:true,note:[],rdy:0,uh:0,up:0,last:0}));
-Object.assign(G,{n:0,log:[],love:null,hq:[],pu:0,tw:0,win:0});G.ph='intro';G.ps.forEach(p=>p.rdy=0);G.dl=Date.now()+G.cfg.it*6e4;tm()}
-function toNight(){G.n=1;night()}
-function night(){G.ph='night';G.sub={};G.si=-1;G.dl=0;G.steps=[...(G.n==1?[['cupid']]:[]),['wolf','seer','guard'],['witch']];next()}
-const hold=s=>pl().filter(p=>p.alive&&s.includes(p.role)&&G.sub[p.id]===undefined);
-function next(){do{G.si++}while(G.si<G.steps.length&&!hold(G.steps[G.si]).length);if(G.si>=G.steps.length)dawn()}
-function adv(){if(!hold(G.steps[G.si]).length)next()}
-function wt(){const c={};pl().filter(p=>p.role=='wolf'&&p.alive).forEach(p=>{const t=(G.sub[p.id]||[])[0];if(t&&t!='-')c[t]=(c[t]||0)+1});
-const m=Math.max(0,...Object.values(c)),k=Object.keys(c).filter(x=>c[x]==m);return k.length?k[Math.random()*k.length|0]:null}
-function pr(p){const h=G.ph,al=pl().filter(q=>q.alive),ids=f=>al.filter(f).map(q=>q.id);
-if(h=='hunter')return G.hq[0]==p.id?{k:'pick',n:1,t:'คุณถูกกำจัด! ยิงผู้เล่นอีก 1 คน',o:ids(q=>1)}:null;
-if(!p.alive||(p.id=='host'&&G.cfg.mod))return null;
-if(h=='vote')return G.votes[p.id]?null:{k:'pick',n:1,t:'โหวตกำจัดผู้เล่น',o:ids(q=>q!=p),skip:1};
-if(h!='night'||!hold(G.steps[G.si]).includes(p))return null;
-const r=p.role;
-if(r=='cupid')return{k:'pick',n:2,t:'เลือกคู่ชีวิต 2 คน',o:ids(q=>1)};
-if(r=='wolf')return{k:'pick',n:1,t:'เลือกเหยื่อของคืนนี้',o:ids(q=>q.role!='wolf')};
-if(r=='seer')return{k:'pick',n:1,t:'เลือกผู้เล่นที่จะตรวจสอบ',o:ids(q=>q!=p)};
-if(r=='guard')return{k:'pick',n:1,t:'เลือกผู้เล่นที่จะคุ้มครอง',o:ids(q=>q!=p&&q.id!=p.last),skip:1};
-if(r=='witch'){const v=wt();return{k:'witch',v:v&&P(v).name,h:!p.uh&&!!v,p:!p.up,o:ids(q=>q!=p),n:1}}}
-function act(p,v){const q=pr(p);if(!q)return;const h=G.ph;
-if(q.k=='pick'){if(!(Array.isArray(v)&&v.length==q.n&&v.every(x=>q.o.includes(x)||(q.skip&&x=='-'))))return}
-if(h=='hunter'){G.hq.shift();kill(v[0]);return post(G.cb)}
-if(h=='vote'){G.votes[p.id]=v[0];if(pl().every(x=>!x.alive||G.votes[x.id]))tally();return}
-G.sub[p.id]=v;
-if(p.role=='seer'&&v[0]!='-'){const t=P(v[0]);p.note.push(`🔮 คืน ${G.n}: ${t.name} ${t.role=='wolf'?'เป็นมนุษย์หมาป่า':'ไม่ใช่มนุษย์หมาป่า'}`)}
-if(p.role=='guard')p.last=v[0];
-if(p.role=='cupid'&&v.length==2&&v[0]!='-'){G.love=v;v.forEach((x,i)=>P(x).note.push('💘 คู่ชีวิตของคุณคือ '+P(v[1-i]).name))}
-if(p.role=='witch'){if(v.h&&q.h)p.uh=1;else v.h=0;if(v.p&&q.p&&q.o.includes(v.p))p.up=1;else v.p=0}
-adv()}
-function kill(id){const p=P(id);if(!p||!p.alive)return;p.alive=false;G.log.push(`💀 ${p.name} ถูกกำจัด เป็น${R[p.role][0]}`);if(p.role=='hunter')G.hq.push(p.id);if(G.love&&G.love.includes(id))G.love.forEach(kill)}
-function post(cb){G.cb=cb;if(G.hq.length)G.ph='hunter';else cb()}
-function chk(){if(G.tw){G.win='🃏 ยาจกชนะ!';return G.ph='end'}
-const a=pl().filter(p=>p.alive),w=a.filter(p=>p.role=='wolf').length;
-if(a.length==2&&w==1&&G.love&&a.every(p=>G.love.includes(p.id)))G.win='💘 คู่ชีวิตชนะ!';
-else if(!w)G.win='🏘️ ฝ่ายชาวบ้านชนะ!';else if(w>=a.length-w)G.win='🐺 ฝ่ายมนุษย์หมาป่าชนะ!';else return 0;
-return G.ph='end'}
-function dawn(){G.log.push(`☀️ เช้าวันที่ ${G.n}`);const n0=G.log.length;let v=wt(),x=0,g=0,pz=0;
-pl().forEach(p=>{const s=G.sub[p.id];if(!s||!p.alive)return;if(p.role=='witch'){if(s.h)x=1;if(s.p)pz=s.p}if(p.role=='guard')g=s[0]});
-if(v&&!x&&v!=g)kill(v);if(pz)kill(pz);
-if(G.log.length==n0)G.log.push('คืนที่ผ่านมาไม่มีใครตาย');
-post(()=>{if(!chk()){G.ph='day';G.ps.forEach(p=>p.rdy=0);G.dl=Date.now()+12e4;tm()}})}
-function vote(){G.ph='vote';G.votes={};G.dl=Date.now()+9e4;tm()}
-function tally(){const c={};Object.entries(G.votes).forEach(([k,t])=>{if(t&&t!='-')c[t]=(c[t]||0)+(P(k).role=='mayor'?2:1)});
-const m=Math.max(0,...Object.values(c)),k=Object.keys(c).filter(x=>c[x]==m),t=m&&k.length==1?P(k[0]):0;
-G.log.push('🗳️ ผลโหวต: '+(Object.entries(c).map(([i,n])=>P(i).name+' '+n).join(', ')||'ไม่มีใครถูกโหวต'));
-if(!t)G.log.push('ไม่มีใครถูกกำจัด');
-else if(t.role=='prince'&&!G.pu){G.pu=1;G.log.push(`👑 ${t.name} เปิดเผยตัวเป็นเจ้าชาย และรอดชีวิต!`)}
-else{kill(t.id);if(t.role=='tanner')G.tw=1}
-post(()=>{if(!chk()){G.n++;night()}})}
-function tm(){clearTimeout(T);if(G.cfg.mod)return;T=setTimeout(()=>{if(G.ph=='day')vote();else if(G.ph=='vote')tally();else if(G.ph=='intro')toNight();up()},G.dl-Date.now())}
-function modGo(){const h=G.ph;if(h=='night'){while(G.ph=='night'){hold(G.steps[G.si]).forEach(p=>G.sub[p.id]=p.role=='witch'?{}:['-']);adv()}}else if(h=='intro')toNight();else if(h=='day')vote();else if(h=='vote')tally();else if(h=='hunter'){G.hq.shift();post(G.cb)}}
-function vw(p){const h=G.ph,mod=G.cfg.mod&&p.id=='host',nm=i=>i=='-'?'ข้าม':(P(i)||{}).name;
-const ac=q=>{const s=mod&&h=='night'&&G.sub[q.id];return s?(Array.isArray(s)?s.map(nm).join(','):`ฟื้น:${s.h?'✓':'-'} พิษ:${s.p?nm(s.p):'-'}`):''};
-return{ph:h,n:G.n,cfg:G.cfg,code:G.code,log:G.log.slice(-8),dl:G.dl,mod,win:G.win,
-me:{id:p.id,role:p.role,alive:p.alive,sent:h=='night'&&!!G.sub&&G.sub[p.id]!==undefined,note:p.note||[],mates:p.role=='wolf'?pl().filter(q=>q.role=='wolf'&&q!=p).map(q=>q.name):[]},
-ps:G.ps.map(q=>({id:q.id,name:q.name,alive:q.alive,rd:q.rdy,on:q.id=='host'||!!q.conn,m:G.cfg.mod&&q.id=='host',ac:ac(q),r:h=='lobby'?0:(!q.alive||mod||h=='end')?q.role:0})),
-pr:h!='lobby'&&h!='end'?pr(p):null,vt:h=='vote'&&(!G.cfg.sec||mod)?G.votes:null}}
-// ---------- หน้าจอ ----------
-// ---------- เสียง ----------
-let AC,mute=0,bg=0,pph=0;
-const ac=()=>{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state=='suspended')AC.resume();return AC};
-function tone(f,d,t='sine',v=.15,at=0){if(mute)return;const c=ac(),o=c.createOscillator(),g=c.createGain(),n=c.currentTime+at;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(c.destination);o.start(n);o.stop(n+d)}
-function synthCrow(){if(mute)return;const c=ac(),t=c.currentTime;[[500,900,0,.25],[700,1100,.3,.2],[600,1400,.55,.3],[1300,650,.95,.55]].forEach(([a,b,s,d])=>{const o=c.createOscillator(),g=c.createGain();o.type='sawtooth';o.frequency.setValueAtTime(a,t+s);o.frequency.linearRampToValueAtTime(b,t+s+d);g.gain.setValueAtTime(.09,t+s);g.gain.linearRampToValueAtTime(0,t+s+d);o.connect(g);g.connect(c.destination);o.start(t+s);o.stop(t+s+d)})}
-function crow(){if(mute)return;const a=new Audio('rooster.mp3');a.play().catch(synthCrow)}
-function bgm(n){if(bg){bg.forEach(x=>{try{x.stop()}catch(e){}});bg=0}if(mute||n<0||!AC)return;const c=ac(),g=c.createGain();g.gain.value=n?.05:.025;
-const b=c.createBuffer(1,c.sampleRate*2,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-const s=c.createBufferSource();s.buffer=b;s.loop=true;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=n?300:900;s.connect(f);f.connect(g);g.connect(c.destination);s.start();
-const o=c.createOscillator(),og=c.createGain();o.type='triangle';o.frequency.value=n?55:110;og.gain.value=n?.04:.015;o.connect(og);og.connect(c.destination);o.start();bg=[s,o]}
-function snd(v){if(v.ph==pph)return;pph=v.ph;if(v.ph=='night'){bgm(1);tone(110,1.4,'sine',.2)}else if(v.ph=='day'||v.ph=='intro'){bgm(0);crow()}else if(v.ph=='lobby'||v.ph=='end')bgm(-1)}
-function tmute(b){mute=!mute;b.textContent=mute?'เสียง: ปิด':'เสียง: เปิด';bgm(mute||!S?-1:S.ph=='night'?1:['day','intro','vote'].includes(S.ph)?0:-1)}
-document.addEventListener&&document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('button')){try{ac()}catch(x){}tone(520,.07,'square',.05)}});
-// ---------- ภาพตัวละคร ----------
-const AR={
-wolf:'<path d="M16 12 33 33Q50 27 67 33L84 12 90 50 73 71 62 90H38L27 71 10 50Z" fill="#2c2f3a" stroke="#9aa0ad" stroke-width="2"/><path d="M28 47 45 55 31 60ZM72 47 55 55 69 60Z" fill="#ffc933"/><path d="M24 42 46 52M76 42 54 52" stroke="#0b0c10" stroke-width="4"/><path d="M43 78h14l-7 9Z" fill="#0b0c10"/><path d="M38 89l3 8 3-8M56 89l3 8 3-8" fill="#fff"/>',
-villager:'<circle cx="50" cy="58" r="24" fill="#d9a77a"/><path d="M22 44Q26 18 50 18T78 44Z" fill="#b8903a"/><ellipse cx="50" cy="44" rx="34" ry="6" fill="#d1a548"/><circle cx="41" cy="58" r="3" fill="#222"/><circle cx="59" cy="58" r="3" fill="#222"/><path d="M42 70Q50 76 58 70" stroke="#6b3b22" stroke-width="3" fill="none"/>',
-seer:'<path d="M12 95Q14 38 50 26 86 38 88 95Z" fill="#2b2f5a"/><circle cx="50" cy="64" r="19" fill="#6fe0ff" opacity=".85"/><circle cx="43" cy="57" r="5" fill="#fff" opacity=".7"/><path d="M34 42Q50 32 66 42" stroke="#9fa6ff" stroke-width="3" fill="none"/>',
-guard:'<path d="M50 8 84 20V50Q84 80 50 94 16 80 16 50V20Z" fill="#3a4a66" stroke="#b8c2d6" stroke-width="3"/><path d="M50 8V94M16 44H84" stroke="#b8c2d6" stroke-width="3"/><circle cx="50" cy="44" r="8" fill="#d4a63a"/>',
-witch:'<path d="M50 6 68 48H32Z" fill="#3b1f55"/><ellipse cx="50" cy="50" rx="32" ry="7" fill="#2a1540"/><circle cx="50" cy="70" r="19" fill="#8fbf7f"/><path d="M36 66l8 2-8 3ZM64 66l-8 2 8 3Z" fill="#fff35a"/><path d="M42 80Q50 86 58 80" stroke="#2a1540" stroke-width="3" fill="none"/>',
-hunter:'<path d="M32 10Q92 50 32 90" stroke="#b58a52" stroke-width="6" fill="none"/><path d="M32 10V90" stroke="#ddd"/><path d="M14 50H88M88 50 76 42M88 50 76 58M14 50 20 44M14 50 20 56" stroke="#ccc" stroke-width="3" fill="none"/>',
-cupid:'<path d="M50 86C8 56 16 20 40 26 46 28 50 36 50 36S54 28 60 26C84 20 92 56 50 86Z" fill="#c2273d"/><path d="M14 20 86 80M86 80 74 78M86 80 82 68" stroke="#e8e0c8" stroke-width="3"/>',
-mayor:'<rect x="34" y="14" width="32" height="34" fill="#1d1d22"/><rect x="34" y="38" width="32" height="6" fill="#c9a032"/><rect x="20" y="48" width="60" height="7" rx="2" fill="#1d1d22"/><circle cx="50" cy="73" r="18" fill="#d9a77a"/><path d="M38 70h8M54 70h8" stroke="#222" stroke-width="3"/><path d="M34 80Q50 94 66 80Q50 86 34 80Z" fill="#5a3a22"/>',
-prince:'<path d="M16 66 22 26 38 46 50 18 62 46 78 26 84 66Z" fill="#e0b030" stroke="#7a5a10" stroke-width="2"/><rect x="16" y="66" width="68" height="12" fill="#c99a20"/><circle cx="50" cy="30" r="4" fill="#c2273d"/><circle cx="30" cy="56" r="4" fill="#2f6fba"/><circle cx="70" cy="56" r="4" fill="#2f6fba"/>',
-tanner:'<path d="M14 94Q16 28 50 20 84 28 86 94Z" fill="#4a3f2c"/><ellipse cx="50" cy="54" rx="19" ry="22" fill="#14110d"/><path d="M40 52l7 2-7 3ZM60 52l-7 2 7 3Z" fill="#f4e6b0"/><path d="M26 80 36 70M74 80 64 70" stroke="#2c2518" stroke-width="3"/>'};
-const sv=(k,z)=>`<svg viewBox="0 0 100 100" width=${z} height=${z} style="vertical-align:middle"><circle cx=50 cy=50 r=47 fill="#1a1c26" stroke="#555" stroke-width=1.5 /><circle cx=50 cy=46 r=34 fill="#c9b27a" opacity=.14 />${AR[k]}</svg>`,art=k=>sv(k,130),ic=k=>sv(k,24);
-const card=k=>{const r=R[k];return`<div class="card ${r[3]=='w'?'w':r[3]=='x'?'x':''}"><div class=i>${art(k)}</div><b>${r[0]}</b><p>${r[4]}</p><span class=c style="color:${r[2]>0?'#7cf':'#f77'}">${r[2]>0?'+':''}${r[2]}</span></div>`};
-const sgn=n=>(n>0?'+':'')+n;
-function render(){const s=S;if(!s)return;const pl=s.ps.filter(q=>!q.m),nm=i=>(s.ps.find(q=>q.id==i)||{}).name;let h='<h1>🐺 มนุษย์หมาป่า</h1>';
-if(s.ph=='lobby'){const np=pl.length,c=s.cfg.r;let cnt=0,tot=0;for(const k in R){const n=c[k]||0;cnt+=n;tot+=n*R[k][2]}if(np>cnt)tot+=np-cnt;
-h+=`<div class=box><h2>รหัสห้อง: ${s.code}</h2>ผู้เล่น ${np} คน (ส่งรหัสนี้ให้เพื่อน)`+pl.map(q=>`<div class=row><span>${q.name}</span><span>${q.on?'🟢':'📴'}${isHost&&q.id!='host'?`<button onclick="tx({t:'kick',id:'${q.id}'})">❌</button>`:''}</span></div>`).join('')+'</div>';
-if(isHost){h+=`<div class=box><button onclick="tx({t:'tg',k:'mod'})">ผู้ดำเนินเกม: ${s.cfg.mod?'คนคุมเกม (โฮสต์ไม่เล่น)':'แอปอัตโนมัติ'}</button><button onclick="tx({t:'tg',k:'sec'})">โหวต: ${s.cfg.sec?'ลับ':'เปิดเผย'}</button><div class=row><span>เวลาวันแนะนำตัว</span><span><button onclick="tx({t:'it',d:-1})">−</button>${s.cfg.it} นาที<button onclick="tx({t:'it',d:1})">+</button></span></div></div><div class=box><b>เลือกบทบาท</b> (ที่เหลือเติมเป็นชาวบ้านอัตโนมัติ)`+Object.keys(R).map(k=>`<div class=row><span>${ic(k)} ${R[k][0]} (${sgn(R[k][2])})</span><span><button onclick="tx({t:'r',k:'${k}',d:-1})">−</button>${c[k]||0}<button onclick="tx({t:'r',k:'${k}',d:1})">+</button></span></div>`).join('')+`<p>คะแนนรวมมุมการ์ด: <b style="color:${tot>0?'#7cf':'#f77'}">${sgn(tot)}</b> (ยิ่งใกล้ 0 ยิ่งสมดุล)</p>${cnt>np?'<p style="color:#f77">จำนวนบทบาทมากกว่าผู้เล่น</p>':''}<button class=p ${cnt<=np&&c.wolf>0&&np>=3?'':'disabled'} onclick="tx({t:'go'})">เริ่มเกม</button></div>`}
-else h+=`<div class=box>รอโฮสต์เริ่มเกม...<br>บทบาท: ${Object.keys(c).filter(k=>c[k]).map(k=>R[k][0]+'×'+c[k]).join(' ')}</div>`;
-return $('a').innerHTML=h}
-const me=s.me,ph=s.ph,q=s.pr;
-h+=`<h2>${{intro:'☀️ วันแนะนำตัว',night:'🌙 คืนที่ '+s.n,day:'☀️ วันที่ '+s.n,vote:'🗳️ โหวตกำจัด',hunter:'🏹 นายพรานยิง',end:'🏁 จบเกม'}[ph]} <span id=t></span></h2>`;
-if(s.win)h+=`<div class=box><h2>${s.win}</h2></div>`;
-if(me.role){h+=`<button onclick="hid=!hid;render()">${hid?'แสดง':'ซ่อน'}การ์ดของฉัน</button>`+(hid?'':card(me.role));if(!me.alive)h+='<div class=box>คุณถูกกำจัดแล้ว ดูต่อเงียบๆ ห้ามบอกใบ้ 🤫</div>'}
-if(me.mates.length)h+=`<div class=box>🐺 พวกเดียวกัน: ${me.mates.join(', ')}</div>`;
-me.note.forEach(n=>h+=`<div class=box>${n}</div>`);
-const pk=(id,n)=>`<button class="pk ${sel.includes(id)?'s':''}" onclick="pickx('${id}',${n})">${nm(id)}</button>`;
-if(q&&q.k=='pick')h+=`<div class=box><b>${q.t}${q.n>1?` (${sel.length}/${q.n})`:''}</b>`+q.o.map(i=>pk(i,q.n)).join('')+`<button class=p ${sel.length==q.n?'':'disabled'} onclick="ok()">ยืนยัน</button>${q.skip?`<button onclick="sel=['-'];ok()">ข้าม</button>`:''}</div>`;
-else if(q&&q.k=='witch')h+=`<div class=box><b>🧪 แม่มด</b><p>เหยื่อของหมาป่าคืนนี้: ${q.v||'ไม่มี'}</p>`+(q.h?`<button class="${wh?'p':''}" onclick="wh=!wh;render()">ชุบชีวิตเหยื่อ ${wh?'✓':''}</button>`:'')+(q.p?'<p>วางยาพิษ (เลือกหรือไม่เลือกก็ได้):</p>'+q.o.map(i=>pk(i,1)).join(''):'')+`<button class=p onclick="ok()">ยืนยัน</button></div>`;
-else if(!s.mod&&me.alive){const my=s.ps.find(x=>x.id==me.id);
-if(ph=='night')h+=`<div class=box>${me.sent?'✅ ส่งการกระทำแล้ว':'🌙 หลับตาลง'} รอจนถึงเช้า (ถ้าถึงตาคุณ ตัวเลือกจะขึ้นที่นี่)</div>`;
-if(ph=='day'||ph=='intro')h+=`<button class=p onclick="tx({t:'rdy'})">✋ ${my.rd?'ยกเลิก':'พร้อมโหวตแล้ว'} (เกินครึ่งจะเริ่มโหวต)</button>`;
-if(ph=='vote')h+='<div class=box>โหวตแล้ว รอคนอื่น...</div>'}
-h+='<div class=box>'+pl.map(x=>`<div class=row><span class="${x.alive?'':'dead'}">${x.name}${x.on?'':' 📴'}${x.rd?' ✋':''}</span><span>${x.r?ic(x.r)+R[x.r][0]:''} ${x.ac}</span></div>`).join('')+'</div>';
-if(s.vt)h+='<div class=box><b>โหวตแบบเปิดเผย</b>'+Object.entries(s.vt).map(([a,b])=>`<div>${nm(a)} → ${b=='-'?'ข้าม':nm(b)}</div>`).join('')+'</div>';
-if(s.log.length)h+='<div class=box>'+s.log.join('<br>')+'</div>';
-if(isHost&&ph!='end')h+=`<div class=box><b>ปุ่มโฮสต์</b><br><button class=p onclick="tx({t:'mod'})">⏭️ ${{intro:'เข้าสู่คืนแรก',night:'เข้าสู่เช้า',day:'เปิดโหวต',vote:'นับคะแนน',hunter:'ข้ามการยิง'}[ph]}</button>${s.dl&&(ph=='day'||ph=='vote'||ph=='intro')?`<button onclick="tx({t:'tm',d:-3e4})">⏱️ −30 วินาที</button><button onclick="tx({t:'tm',d:3e4})">⏱️ +30 วินาที</button><button onclick="tx({t:'tm',d:6e4})">⏱️ +1 นาที</button>`:''}</div>`;
-if(ph=='end'&&isHost)h+=`<button class=p onclick="tx({t:'again'})">เล่นอีกรอบ</button>`;
-$('a').innerHTML=h}
-function pickx(id,n){if(sel.includes(id))sel=sel.filter(x=>x!=id);else if(sel.length<n)sel.push(id);else if(n==1)sel=[id];render()}
-function ok(){tx({t:'a',v:S.pr.k=='witch'?{h:wh?1:0,p:sel[0]||0}:sel});sel=[];wh=0}
-let vb=0,lb=0;setInterval(()=>{const e=$('t');if(!e)return;if(!S||!S.dl){e.textContent='';return}const r=Math.max(0,Math.round((S.dl-Date.now())/1000));e.textContent=r?(r/60|0)+':'+String(r%60).padStart(2,'0'):'หมดเวลา!';e.style.color=r<=10?'#f55':'';if(r>0&&r<=10&&['intro','day','vote'].includes(S.ph)&&lb!=r){lb=r;tone(r<=3?1100:800,.12,'square',.1)}if(!r&&vb!=S.dl){vb=S.dl;navigator.vibrate&&navigator.vibrate(400)}},1000);
-home();
+:root{color-scheme:light;--bg:#EEEAF6;--surface:#F9F7FD;--fg:#1B1530;--muted:#5E5779;--line:#CFC8E2;--accent:#B7791F;--accent-fg:#FFFFFF;--accent-soft:#F3E3C3;--good:#15764B;--bad:#B3261E;--wolf:#B3261E;--vill:#285A9C;--third:#6A3FA8;--warn:#9A6200;--font-display:"Kanit","Noto Sans Thai",system-ui,sans-serif;--font-body:"Noto Sans Thai","Kanit",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E0B1C;--surface:#1A1632;--fg:#EEEAF8;--muted:#A09ABD;--line:#312B52;--accent:#F0B955;--accent-fg:#1A1203;--accent-soft:#3A2D14;--good:#4CC38A;--bad:#FF8A80;--wolf:#FF7A80;--vill:#7FB0F0;--third:#B99CF2;--warn:#F0B955;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E0B1C;--surface:#1A1632;--fg:#EEEAF8;--muted:#A09ABD;--line:#312B52;--accent:#F0B955;--accent-fg:#1A1203;--accent-soft:#3A2D14;--good:#4CC38A;--bad:#FF8A80;--wolf:#FF7A80;--vill:#7FB0F0;--third:#B99CF2;--warn:#F0B955;color-scheme:dark}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+*{box-sizing:border-box}
+#app{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.25}h3{font-size:19px}p{margin:0}
+.brand .mark{font-family:var(--font-display);font-weight:700;font-size:30px;line-height:1.2}
+.brand p{color:var(--muted);font-size:14px;margin-top:6px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.center{text-align:center;align-items:center}
+.label{font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.hint{font-size:13px;color:var(--muted)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.between{justify-content:space-between}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{min-height:46px;padding:9px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-family:var(--font-display);font-size:16px}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}.btn.block{width:100%}.btn.ghost{background:transparent}
+.btn.round{width:40px;min-height:40px;padding:0;border-radius:50%;font-size:20px}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--vill);outline-offset:2px}
+input[type=text],input:not([type]),input.code,select{min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;width:100%}
+input.code{width:130px;text-transform:uppercase;letter-spacing:.2em;text-align:center;font-family:var(--font-display);font-size:20px}
+select{width:auto}input[type=checkbox]{width:20px;height:20px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:40px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;font-size:14px}
+.chip.pick[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.stage{font-family:var(--font-display);font-size:22px;font-weight:600}
+.who{font-family:var(--font-display);font-size:36px;font-weight:700;overflow-wrap:anywhere}
+.clock{font-family:var(--font-display);font-weight:600;font-size:48px;font-variant-numeric:tabular-nums}.clock.low{color:var(--bad)}
+.roomcode{font-family:var(--font-display);font-size:48px;font-weight:700;letter-spacing:.2em}
+.val{display:inline-block;min-width:2.2em;text-align:center;border-radius:8px;padding:0 6px;font-family:var(--font-display);font-weight:600;font-size:13px}
+.val.pos{background:var(--vill);color:#fff}.val.neg{background:var(--wolf);color:#fff}.val.zero{background:var(--line);color:var(--fg)}
+.q{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:50%;background:var(--accent-soft);color:var(--warn);font-size:12px;font-weight:700}
+.rrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.rrow.on{background:var(--accent-soft);margin:0 -8px;padding-inline:8px;border-radius:10px}
+.rinfo{display:flex;gap:10px;min-width:0}.rinfo .e{font-size:26px}.rt{font-weight:600}.rd{font-size:12.5px;color:var(--muted)}
+.stepper{display:flex;align-items:center;gap:8px;flex:none}.stepper .num{min-width:1.6ch;text-align:center;font-family:var(--font-display);font-size:20px}
+.meter .bar{position:relative;height:14px;border-radius:7px;background:linear-gradient(90deg,var(--wolf),var(--line) 50%,var(--vill))}
+.meter .bar b{position:absolute;top:-4px;width:6px;height:22px;border-radius:3px;background:var(--fg);transform:translateX(-50%)}
+.meter .bl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+.bsum{font-size:17px;margin-top:6px}.bsum strong{font-family:var(--font-display);font-size:26px}.bsum.ok{color:var(--good)}.bsum.warn{color:var(--warn)}.bsum.bad{color:var(--bad)}
+.warnbox{background:var(--accent-soft);color:var(--warn);border-radius:10px;padding:8px 12px;font-size:14px}
+.errbox{background:var(--accent-soft);color:var(--bad);border-radius:10px;padding:8px 12px;font-size:14px}
+.okbox{color:var(--good);font-size:14px}
+.rcard{border:2px solid var(--vill);border-radius:18px;padding:18px;background:var(--surface);text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+.rcard.wolf{border-color:var(--wolf)}.rcard.third{border-color:var(--third)}
+.rcard .em{font-size:64px;line-height:1}.rcard.big .em{font-size:88px}.rcard .rn{font-family:var(--font-display);font-size:28px;font-weight:700}.rcard p{font-size:15px}
+.peek{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-height:48px;padding:8px 14px;border-radius:12px;border:1px dashed var(--line);background:var(--surface);text-align:left}
+.roster{display:flex;flex-direction:column}.pl{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:14.5px}.pl.dead .nm{text-decoration:line-through;color:var(--muted)}.pl .tg{color:var(--muted);font-size:13px;text-align:right}
+.dawn p{font-size:15.5px}.dawn .big{font-size:19px;font-weight:600}.moon{font-size:60px}
+.ghost{font-family:var(--font-display);font-size:28px;letter-spacing:.3em;overflow-wrap:anywhere}
+.chat{max-height:120px;overflow:auto;font-size:14px;background:var(--bg);border-radius:8px;padding:6px 8px;min-height:36px}
+.log{font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto}
+.verdict{font-family:var(--font-display);font-size:26px;font-weight:700}.verdict.win{color:var(--good)}
+table.roles{width:100%;border-collapse:collapse;font-size:14.5px}table.roles td{padding:6px 4px;border-top:1px solid var(--line)}table.roles tr.won td{font-weight:600;color:var(--good)}
+details summary{cursor:pointer;font-family:var(--font-display);font-weight:600;min-height:32px}details ol{margin:8px 0 0;padding-left:1.3em;color:var(--muted);font-size:14.5px;display:flex;flex-direction:column;gap:6px}
+.selrow select{margin-left:8px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:20;max-width:90vw}
+</style></head><body><main id="app"></main><script>
+/* ================= roles: values (+ village / − wolf) read from the Thai booklet cards ================= */
+/* t: v = village side, w = wolf side, x = third party. v = card balance number. Edit freely. */
+const ROLES = [
+ {id:"villager",th:"ชาวบ้าน",e:"🧑‍🌾",v:1,t:"v",max:20,d:"ไม่มีพลังพิเศษ ใช้การสังเกตและการโหวตช่วยกันตามหามนุษย์หมาป่า"},
+ {id:"seer",th:"เทพพยากรณ์",e:"🔮",v:7,t:"v",max:1,d:"ทุกคืนเลือกผู้เล่น 1 คน แล้วจะรู้ว่าเขาเป็นมนุษย์หมาป่าหรือไม่"},
+ {id:"apprentice",th:"ศิษย์เทพพยากรณ์",e:"📿",v:4,t:"v",max:1,d:"ไม่มีพลังในตอนแรก แต่เมื่อเทพพยากรณ์ถูกกำจัด จะสืบทอดพลังตรวจผู้เล่นทุกคืนต่อทันที"},
+ {id:"witch",th:"แม่มด",e:"🧪",v:4,t:"v",max:1,d:"มียา 2 ขวด ใช้ได้ขวดละครั้งต่อเกม: ยาช่วย (ผู้เล่นที่เลือกไม่ถูกกำจัดในคืนนั้น) และยาพิษ (กำจัดผู้เล่นทันที) ใช้ในคืนเดียวกันได้"},
+ {id:"aura",th:"ญาณทิพย์",e:"🌟",v:3,t:"v",max:1,d:"ทุกคืนเลือกผู้เล่น 1 คน จะรู้ว่าเขาเป็นตัวละครพิเศษ (มีบทบาทเฉพาะ) หรือเป็นชาวบ้าน/หมาป่าธรรมดา"},
+ {id:"priest",th:"นักบวช",e:"🙏",v:3,t:"v",max:1,d:"ครั้งเดียวต่อเกม ให้พรผู้เล่น 1 คน (ไม่ใช่ตัวเอง) ผู้นั้นรอดจากการถูกกำจัดครั้งแรกไม่ว่าด้วยวิธีใด"},
+ {id:"investigator",th:"นักสืบเรื่องลี้ลับ",e:"🔍",v:3,t:"v",max:1,d:"ครั้งเดียวต่อเกม เลือกผู้เล่น 1 คน จะรู้ว่าในตัวเขาและผู้เล่นทางซ้าย-ขวามีมนุษย์หมาป่าปะปนอยู่หรือไม่ (ไม่ระบุว่าใคร)"},
+ {id:"hunter",th:"นายพราน",e:"🎯",v:3,t:"v",max:1,d:"เมื่อถูกกำจัดไม่ว่าเวลาใด จะยิงผู้เล่น 1 คนให้ตายตามทันที หรือยิงขึ้นฟ้าก็ได้"},
+ {id:"bodyguard",th:"บอดี้การ์ด",e:"🛡️",v:3,t:"v",max:1,d:"ทุกคืนคุ้มครองผู้เล่น 1 คน (ไม่ใช่ตัวเอง ห้ามเลือกคนเดิมสองคืนติด) ผู้นั้นไม่ถูกกำจัดในคืนนั้น"},
+ {id:"prince",th:"เจ้าชาย",e:"🤴",v:3,t:"v",max:1,d:"ถ้าถูกโหวตกำจัดตอนกลางวัน จะเปิดตัวและรอด การโหวตถูกยกเลิกและเข้าสู่กลางคืนทันที"},
+ {id:"brute",th:"หนุ่มถึก",e:"💪",v:3,t:"v",max:1,d:"ถ้ามนุษย์หมาป่าเลือกคุณเป็นเป้าหมาย คุณจะไม่ตายในคืนนั้น แต่จะถูกกำจัดในคืนถัดไปแทน"},
+ {id:"diseased",th:"ผู้ป่วยติดเชื้อ",e:"🤒",v:3,t:"v",max:1,d:"ถ้ามนุษย์หมาป่ากำจัดคุณ พวกเขาจะติดโรคและเลือกเป้าหมายไม่ได้ในคืนถัดไป"},
+ {id:"mayor",th:"นายกเทศมนตรี",e:"🎖️",v:2,t:"v",max:1,d:"เสียงโหวตของคุณนับเป็น 2 เสียง และไม่มีใครรู้ (ระบบนับให้อย่างลับๆ)"},
+ {id:"mason",th:"ภราดรแห่งเมสัน",e:"🧱",v:2,t:"v",max:3,d:"คืนแรกจะได้รู้ว่าใครเป็นเมสันด้วยกัน ควรใส่เป็นคู่ขึ้นไป (2–3 คน)"},
+ {id:"ghost",th:"พรายกระซิบ",e:"👻",v:2,t:"v",max:1,d:"ถูกกำจัดตั้งแต่ต้นเกม (เป็นผู้ชม) แต่คืนแรกได้เขียนข้อความ 10 ตัวอักษรจากยมโลก ทุกเช้าระบบเผยทีละตัว ห้ามระบุชื่อผู้เล่น"},
+ {id:"idiot",th:"ไอ้ทึ่ม",e:"🤪",v:2,t:"v",max:1,d:"คุณโหวตให้มีการกำจัดเสมอ เสียงของคุณจะไปอยู่กับผู้ที่คะแนนนำอยู่โดยอัตโนมัติ (คุณไม่ต้องเลือกเอง)"},
+ {id:"spellcaster",th:"จอมเวท",e:"🤫",v:1,t:"v",max:1,d:"ทุกคืนเลือกผู้เล่น 1 คน (ตัวเองก็ได้) ให้เป็นใบ้ในวันถัดไป ห้ามเลือกคนเดิมซ้ำทั้งเกม"},
+ {id:"hag",th:"แม่หมอ",e:"🧙‍♀️",v:1,t:"v",max:1,d:"ทุกคืนสาปแช่งผู้เล่น 1 คน ผู้นั้นต้องออกจากเกมในวันถัดไป ไม่พูด ไม่โหวต ไม่ถูกโหวต และปลอดภัยจากนายพราน"},
+ {id:"cult",th:"เจ้าลัทธิ",e:"🌀",v:1,t:"v",max:1,d:"ทุกคืนชักจูงผู้เล่น 1 คนเข้าลัทธิ (เขาไม่รู้ตัว) ชนะเมื่อผู้เล่นที่เหลือทุกคนอยู่ในลัทธิ ถ้าถูกกำจัด สมาชิกคนแรกจะสืบทอดเป็นเจ้าลัทธิ"},
+ {id:"bandit",th:"อันธพาล",e:"🗡️",v:0,t:"v",max:1,d:"คืนแรกชี้ผู้เล่น 2 คน ถ้าทั้งสองถูกกำจัดและคุณยังรอดตอนเกมจบ คุณชนะเพิ่มอีกทาง และคุณต้องการให้ฝ่ายชาวบ้านชนะ"},
+ {id:"pacifist",th:"ผู้รักสันติ",e:"🕊️",v:-1,t:"v",max:1,d:"เสียงโหวตของคุณคือ “ไม่กำจัดใคร” เสมอ ช่วยกันคนบริสุทธิ์จากการถูกโหวตออก"},
+ {id:"halfwolf",th:"ลูกครึ่งมนุษย์หมาป่า",e:"🐕",v:-1,t:"v",max:1,d:"คุณเป็นฝ่ายชาวบ้าน แต่เทพพยากรณ์จะเห็นว่าคุณเป็นมนุษย์หมาป่า"},
+ {id:"doppel",th:"ภูตจำแลง",e:"🎭",v:-2,t:"v",max:1,d:"คืนแรกเลือกผู้เล่น 1 คน เมื่อผู้นั้นตาย คุณจะรับบทบาทของเขาไปอย่างลับๆ และเริ่มใช้พลังในคืนถัดไป ระหว่างนั้นเทพพยากรณ์เห็นคุณเป็นชาวบ้าน"},
+ {id:"cupid",th:"กามเทพ",e:"💘",v:-3,t:"v",max:1,d:"คืนแรกเลือกผู้เล่น 2 คน (ตัวเองก็ได้) เป็นคู่รัก ทั้งคู่จะรู้จักกัน ถ้าคนหนึ่งตายอีกคนตายตาม ถ้าอยู่คนละฝ่าย จะชนะเมื่อเหลือรอดสองคนสุดท้าย"},
+ {id:"troublemaker",th:"ตัวป่วน",e:"🃏",v:-3,t:"v",max:1,d:"ใช้ได้ครั้งเดียวต่อเกม สั่งให้วันถัดไปมีการโหวตกำจัด 2 คน"},
+ {id:"cursed",th:"ผู้ต้องคำสาป",e:"🕯️",v:-3,t:"v",max:1,d:"เป็นฝ่ายชาวบ้านจนกว่ามนุษย์หมาป่าเลือกคุณเป็นเหยื่อ ซึ่งจะทำให้คุณกลายเป็นมนุษย์หมาป่าแทนที่จะตาย"},
+ {id:"drunk",th:"ขี้เมา",e:"🍺",v:-4,t:"v",max:1,d:"สองคืนแรกคุณคิดว่าเป็นชาวบ้านธรรมดา พอถึงคืนที่ 3 จะตื่นและรู้บทบาทจริงของตัวเอง"},
+ {id:"beggar",th:"ยาจก",e:"🥣",v:-2,t:"x",max:1,d:"คุณชนะเมื่อถูกโหวตกำจัดตอนกลางวัน เกมยังดำเนินต่อไปสำหรับคนอื่น"},
+ {id:"werewolf",th:"มนุษย์หมาป่า",e:"🐺",v:-6,t:"w",max:20,d:"คืนแรกรู้จักพวกเดียวกัน ตั้งแต่คืนที่ 2 ร่วมกันเลือกเหยื่อ (ต้องได้เสียงข้างมากของหมาป่า) กลางวันต้องปกปิดตัวตน"},
+ {id:"lone",th:"มนุษย์หมาป่าเดียวดาย",e:"🌑",v:-5,t:"w",max:1,d:"ตื่นพร้อมหมาป่าเพื่อเลือกเหยื่อ แต่ชนะเมื่อเป็นผู้รอดคนสุดท้าย (หรือเหลืออีกเพียง 1 คน)"},
+ {id:"cub",th:"ลูกมนุษย์หมาป่า",e:"🐶",v:-8,t:"w",max:1,d:"นับเป็นมนุษย์หมาป่า ถ้าลูกหมาป่าถูกกำจัด คืนถัดไปหมาป่าจะกำจัดได้ 2 คน"},
+ {id:"minion",th:"สมุนรับใช้",e:"🦇",v:-6,t:"w",max:1,d:"ฝ่ายมนุษย์หมาป่า รู้ว่าหมาป่าทุกตัวคือใคร (และพวกเขารู้จักคุณ) แต่ไม่ตื่นตอนกลางคืน เทพพยากรณ์เห็นคุณเป็นชาวบ้าน"},
+ {id:"sorceress",th:"นางปีศาจ",e:"👹",v:-3,t:"w",max:1,d:"ฝ่ายมนุษย์หมาป่า ทุกคืนเลือกผู้เล่น 1 คนเพื่อดูว่าเป็นเทพพยากรณ์หรือไม่ หมาป่ารู้จักคุณ แต่คุณไม่รู้จักหมาป่า เทพพยากรณ์เห็นคุณเป็นชาวบ้าน"},
+ {id:"vampire",th:"แวมไพร์",e:"🧛",v:-7,t:"x",max:1,d:"ฝ่ายที่สาม ทุกคืนเลือกเหยื่อ 1 คน เหยื่อจะตายตอนเริ่มโหวตของวันถัดไป หมาป่าฆ่าคุณตอนกลางคืนไม่ได้ ชนะเมื่อเหลือแต่แวมไพร์"},
+];
+const RM = {}; ROLES.forEach(r => RM[r.id] = r);
+const UNSURE = { drunk:"ตัวเลขบนการ์ดอ่านค่อนข้างยาก", priest:"ตัวเลขบนการ์ดอ่านค่อนข้างยาก", bandit:"บนการ์ดเป็นสัญลักษณ์ ○ (ตีความเป็น 0)" };
+const DRUNK_POOL = ["priest","bodyguard","hunter","aura","investigator","witch","hag","spellcaster","troublemaker","mayor","prince","diseased","brute","pacifist","idiot"];
+/* ================= engine: pure game rules, no DOM / network ================= */
+const rand = n => Math.floor(Math.random()*n);
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=rand(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const rname = p => (p.role==="drunk" && p.trueRole && p.f.drunkWoke) ? RM[p.role].th : RM[p.role].th;
+const eff = p => (p.role==="drunk" && p.trueRole) ? p.trueRole : p.role;
+const isKiller = p => p.alive && (p.role==="werewolf"||p.role==="lone"||p.role==="cub"||(p.role==="cursed"&&p.f.converted));
+const wolfSide = p => isKiller(p) || (p.alive && (p.role==="minion"||p.role==="sorceress"));
+const seesWolf = p => { const r=eff(p); return r==="werewolf"||r==="lone"||r==="cub"||r==="halfwolf"||(p.role==="cursed"&&p.f.converted); };
+const auraSpecial = p => { const r=eff(p); if(p.role==="cursed"&&p.f.converted) return false; return !(r==="villager"||r==="werewolf"); };
+
+function newGame(names, roleIds, opt){
+  opt = opt||{};
+  const N = names.length, deal = shuffle(roleIds);
+  const G = { N, p:names.map((nm,i)=>({ name:nm, role:deal[i], trueRole:null, alive:true, ghost:false, f:{ msgs:[] } })),
+    night:0, phase:"deal", acts:{}, log:[], pub:[], dawn:[], voteres:null, hunterQ:[], reveal:opt.reveal!==false,
+    protect:new Set(), killCount:1, cubPending:false, sickNext:false, wolvesSick:false, mute:null, hexed:null,
+    dayDouble:false, votesLeft:0, votes:{}, bruteQ:null, cultOrder:[], ghostChars:null, beggarWon:false,
+    vampMark:null, over:null, after:null, pack:new Set(), introPos:0, introOrder:[], dayNo:0 };
+  const inDeck = new Set(deal);
+  G.p.forEach((p,i) => {
+    if (p.role==="cult"){ p.f.cultLeader=true; p.f.cult=true; }
+    if (p.role==="drunk"){ const el = DRUNK_POOL.filter(r=>!inDeck.has(r)); p.trueRole = el.length ? el[rand(el.length)] : "villager"; }
+    if (p.role==="ghost"){ p.alive=false; p.ghost=true; }
+    if (p.role==="werewolf"||p.role==="lone"||p.role==="cub"||p.role==="minion"||p.role==="sorceress") G.pack.add(i);
+  });
+  return G;
+}
+const aliveIdx = G => G.p.map((p,i)=>i).filter(i=>G.p[i].alive);
+const L = (G,s) => { G.log.push(s); if (G.log.length>400) G.log.shift(); };
+const nm = (G,i) => G.p[i].name;
+const roleTxt = (G,i) => { const p=G.p[i]; return (G.reveal||G.over||p.ghost) ? RM[p.role].th : null; };
+
+/* ---------- introduction round ---------- */
+function startIntro(G){
+  G.phase="intro";
+  G.introOrder = G.p.map((p,i)=>i).filter(i=>!G.p[i].ghost);
+  G.introPos = 0;
+}
+function introNext(G){ G.introPos++; return G.introPos < G.introOrder.length; }
+
+/* ---------- night ---------- */
+function startNight(G){
+  G.night++; G.phase="night"; G.acts={}; G.protect=new Set(); G.dawn=[]; G.voteres=null;
+  G.killCount = G.cubPending ? 2 : 1; G.cubPending=false; G.wolvesSick=G.sickNext; G.sickNext=false;
+  G.mute=null; G.hexed=null; G.dayDouble=false;
+  if (G.night===3) G.p.forEach((p,i)=>{ if (p.role==="drunk" && p.alive){
+    p.role=p.trueRole; p.f.drunkWoke=true;
+    p.f.msgs.unshift({n:3,text:"คุณตื่นจากอาการเมาแล้ว! บทบาทจริงของคุณคือ “"+RM[p.role].th+"” เริ่มใช้พลังได้ตั้งแต่คืนนี้"}); L(G,nm(G,i)+" (ขี้เมา) ตื่นเป็น "+RM[p.role].th);
+  }});
+  L(G,"=== คืนที่ "+G.night+" ===");
+}
+function nightSpec(G,i){
+  const p=G.p[i], n=G.night, r=p.role;
+  if (p.ghost) return n===1 ? {k:"text",title:"ข้อความจากยมโลก",hint:"เขียน 10 ตัวอักษร ทุกเช้าระบบจะเผยทีละตัว ห้ามระบุชื่อผู้เล่น"} : null;
+  if (!p.alive) return null;
+  const all=aliveIdx(G), oth=all.filter(j=>j!==i);
+  const pk=(nn,pool,title,hint,opt)=> pool.length>=nn||opt ? {k:"pick",n:Math.min(nn,pool.length),pool,title,hint,opt:!!opt} : null;
+  switch(r){
+    case "cupid": return n===1 ? pk(2,all,"เลือกคู่รัก 2 คน","เลือกตัวเองได้ ทั้งคู่จะรู้จักกัน") : null;
+    case "doppel": return n===1 && p.f.copy==null ? pk(1,oth,"เลือกผู้เล่นที่จะลอกบทบาท","เมื่อเขาตาย คุณจะได้บทบาทของเขา") : null;
+    case "bandit": return n===1 ? pk(2,oth,"ชี้ผู้เล่น 2 คน","ถ้าทั้งสองตายและคุณรอดถึงจบเกม คุณชนะเพิ่ม") : null;
+    case "spellcaster": return pk(1,all.filter(j=>!(p.f.mutedPast||[]).includes(j)),"เลือกคนที่จะเป็นใบ้พรุ่งนี้","ตัวเองก็ได้ ห้ามซ้ำคนเดิม");
+    case "seer": return pk(1,oth,"ส่องผู้เล่น 1 คน","จะรู้ว่าเป็นมนุษย์หมาป่าหรือไม่");
+    case "aura": return pk(1,oth,"ส่องผู้เล่น 1 คน","จะรู้ว่ามีบทบาทพิเศษหรือไม่");
+    case "investigator": return p.f.used ? null : pk(1,oth,"ตรวจผู้เล่น 1 คนกับเพื่อนซ้าย-ขวา","ใช้ได้ครั้งเดียว หรือกดข้ามเก็บไว้ก่อน",true);
+    case "priest": return p.f.used ? null : pk(1,oth,"ให้พรผู้เล่น 1 คน","ใช้ได้ครั้งเดียว หรือกดข้ามเก็บไว้ก่อน",true);
+    case "bodyguard": return pk(1,oth.filter(j=>j!==p.f.lastProt),"คุ้มครองผู้เล่น 1 คน","ห้ามเลือกตัวเอง และห้ามคนเดิมสองคืนติด");
+    case "witch": { const h=!p.f.healUsed, x=!p.f.killUsed; return (h||x) ? {k:"witch",pool:all,heal:h,kill:x,title:"ยาของแม่มด",hint:"ใช้ได้ขวดละครั้งต่อเกม เลือกใช้ทั้งสองหรือข้ามก็ได้"} : null; }
+    case "hag": return pk(1,oth,"สาปแช่งผู้เล่น 1 คน","เขาจะหายไปจากเกมตลอดวันพรุ่งนี้");
+    case "troublemaker": return p.f.used ? null : {k:"yn",title:"ใช้พลังตัวป่วนไหม?",hint:"ใช้ได้ครั้งเดียว วันพรุ่งนี้จะโหวตกำจัด 2 คน"};
+    case "cult": if (!p.f.cultLeader) return null; return pk(1,oth.filter(j=>!G.p[j].f.cult),"ชักจูงผู้เล่น 1 คนเข้าลัทธิ","เขาจะไม่รู้ตัว");
+    case "sorceress": return pk(1,oth,"ส่องผู้เล่น 1 คน","จะรู้ว่าเป็นเทพพยากรณ์หรือไม่");
+    case "vampire": return pk(1,oth,"เลือกเหยื่อ 1 คน","เขาจะตายตอนเริ่มโหวตของวันพรุ่งนี้");
+  }
+  if (p.f.cult && p.f.cultLeader && r!=="cult") return pk(1,oth.filter(j=>!G.p[j].f.cult),"ชักจูงผู้เล่น 1 คนเข้าลัทธิ","เขาจะไม่รู้ตัว");
+  if (isKiller(p) && n>=2 && !G.wolvesSick){
+    const pool = all.filter(j=>!G.pack.has(j));
+    const nn = Math.min(G.killCount,pool.length);
+    return nn ? {k:"wolf",n:nn,pool,title:G.killCount===2?"เลือกเหยื่อ 2 คน":"เลือกเหยื่อ",hint:"หมาป่าส่วนใหญ่ต้องเลือกตรงกันจึงจะกำจัดได้"} : null;
+  }
+  return null;
+}
+function submitAct(G,i,a){
+  const s=nightSpec(G,i); if(!s||!a) return false;
+  const okIdx = x => Number.isInteger(x) && s.pool && s.pool.includes(x);
+  if (s.k==="pick"||s.k==="wolf"){
+    const t=Array.isArray(a.t)?a.t:[];
+    if (t.length===0 && s.opt){ G.acts[i]={t:[]}; return true; }
+    if (t.length!==s.n || new Set(t).size!==t.length || !t.every(okIdx)) return false;
+    G.acts[i]={t:t.slice()}; return true;
+  }
+  if (s.k==="witch"){
+    const h=a.h==null?null:a.h, x=a.x==null?null:a.x;
+    if ((h!=null && (!s.heal||!okIdx(h))) || (x!=null && (!s.kill||!okIdx(x)))) return false;
+    G.acts[i]={h,x}; return true;
+  }
+  if (s.k==="yn"){ G.acts[i]={y:!!a.y}; return true; }
+  if (s.k==="text"){ const seg=[...String(a.s||"").replace(/\s+/g,"")]; if(!seg.length||seg.length>10) return false; G.acts[i]={s:seg.join("")}; return true; }
+  return false;
+}
+const pendingActors = G => G.p.map((p,i)=>i).filter(i=>nightSpec(G,i) && !G.acts[i]);
+const nightDone = G => pendingActors(G).length===0;
+
+function wolfTarget(G){
+  const w=G.p.map((p,i)=>i).filter(i=>isKiller(G.p[i]) && nightSpec(G,i));
+  if(!w.length) return null; const c={};
+  w.forEach(i=>{ const a=G.acts[i]; if(a&&a.t&&a.t.length){ const k=[...a.t].sort((x,y)=>x-y).join(","); c[k]=(c[k]||0)+1; }});
+  let best=null; Object.keys(c).forEach(k=>{ if(c[k]*2>w.length) best=k; });
+  return best ? best.split(",").map(Number) : null;
+}
+function note(G,i,text){ G.p[i].f.msgs.unshift({n:G.night,text}); }
+
+function kill(G,i,cause,force){
+  const p=G.p[i]; if(!p.alive) return false;
+  if (!force && p.f.shield){ p.f.shield=false; L(G,nm(G,i)+" รอดจาก "+cause+" เพราะพรนักบวช"); return false; }
+  p.alive=false; p.f.cause=cause; G.deaths.push(i);
+  const rt=roleTxt(G,i);
+  G.pub.push(nm(G,i)+" ถูกกำจัด"+(rt?" (บทบาท: "+rt+")":""));
+  L(G,nm(G,i)+" ("+RM[p.role].th+") ตาย: "+cause);
+  if (p.f.lover!=null && G.p[p.f.lover].alive){ G.pub.push(nm(G,p.f.lover)+" ตรอมใจตายตามคู่รัก"); kill(G,p.f.lover,"คู่รักตาย",true); }
+  if (p.role==="hunter") G.hunterQ.push(i);
+  if (p.role==="cub") G.cubPending=true;
+  if (p.role==="seer"){ const a=G.p.findIndex(q=>q.alive&&q.role==="apprentice"); if(a>=0){ G.p[a].role="seer"; note(G,a,"เทพพยากรณ์ตายแล้ว คุณสืบทอดเป็นเทพพยากรณ์ ส่องได้ตั้งแต่คืนถัดไป"); L(G,nm(G,a)+" สืบทอดเป็นเทพพยากรณ์"); } }
+  if (p.f.cultLeader){ p.f.cultLeader=false; const nx=G.cultOrder.find(j=>G.p[j].alive); if(nx!=null){ G.p[nx].f.cultLeader=true; note(G,nx,"คุณได้เป็นเจ้าลัทธิคนใหม่ ชักจูงคนเพิ่มได้ทุกคืน"); } }
+  G.p.forEach((q,j)=>{ if(q.alive && q.role==="doppel" && q.f.copy===i){
+    q.role=p.role; q.f={ msgs:q.f.msgs, becameFrom:i }; if(q.role==="cult") q.f.cultLeader=true, q.f.cult=true;
+    if(isKiller(q)||q.role==="minion"||q.role==="sorceress") G.pack.add(j);
+    note(G,j,"คุณรับบทบาทใหม่: “"+RM[q.role].th+"”"); L(G,nm(G,j)+" (ภูตจำแลง) กลายเป็น "+RM[q.role].th); } });
+  if (G.bruteQ===i) G.bruteQ=null;
+  return true;
+}
+function attempt(G,t,cause){ if(!G.p[t].alive) return; if(G.protect.has(t)){ L(G,nm(G,t)+" ถูกคุ้มครองจาก "+cause); return; } kill(G,t,cause); }
+
+function endNight(G){
+  G.pub=[]; G.deaths=[]; const A=G.acts, P=G.p, N=G.night;
+  P.forEach((p,i)=>{ const a=A[i]; if(!a) return; const r=p.role, t=a.t||[];
+    if (p.ghost && a.s){ G.ghostChars=[...a.s]; L(G,"พรายกระซิบเขียน: "+a.s); return; }
+    if (r==="cupid" && t.length===2){ P[t[0]].f.lover=t[1]; P[t[1]].f.lover=t[0]; note(G,t[0],"คุณเป็นคู่รักกับ “"+nm(G,t[1])+"”"); note(G,t[1],"คุณเป็นคู่รักกับ “"+nm(G,t[0])+"”"); L(G,"กามเทพจับคู่ "+nm(G,t[0])+" + "+nm(G,t[1])); }
+    if (r==="doppel" && t.length) { p.f.copy=t[0]; L(G,nm(G,i)+" (ภูตจำแลง) เลือก "+nm(G,t[0])); }
+    if (r==="bandit" && t.length) { p.f.marks=t.slice(); L(G,nm(G,i)+" (อันธพาล) ชี้ "+t.map(x=>nm(G,x)).join(", ")); }
+    if (p.f.cultLeader && t.length){ P[t[0]].f.cult=true; G.cultOrder.push(t[0]); note(G,i,"ชักจูง “"+nm(G,t[0])+"” เข้าลัทธิแล้ว"); L(G,"เจ้าลัทธิชักจูง "+nm(G,t[0])); }
+    if (r==="hag" && t.length){ G.hexed=t[0]; L(G,"แม่หมอสาป "+nm(G,t[0])); }
+    if (r==="spellcaster" && t.length){ G.mute=t[0]; (p.f.mutedPast=p.f.mutedPast||[]).push(t[0]); L(G,"จอมเวทปิดปาก "+nm(G,t[0])); }
+    if (r==="bodyguard" && t.length){ G.protect.add(t[0]); p.f.lastProt=t[0]; L(G,"บอดี้การ์ดคุ้มครอง "+nm(G,t[0])); }
+    if (r==="witch"){ if(a.h!=null){ G.protect.add(a.h); p.f.healUsed=true; L(G,"แม่มดช่วย "+nm(G,a.h)); } }
+    if (r==="priest" && t.length){ P[t[0]].f.shield=true; p.f.used=true; L(G,"นักบวชให้พร "+nm(G,t[0])); }
+    if (r==="troublemaker" && a.y){ G.dayDouble=true; p.f.used=true; L(G,"ตัวป่วนใช้พลัง: พรุ่งนี้โหวต 2 ครั้ง"); }
+    if (r==="seer" && t.length) note(G,i,"ส่อง “"+nm(G,t[0])+"”: "+(seesWolf(P[t[0]])?"เป็นมนุษย์หมาป่า 🐺":"ไม่ใช่มนุษย์หมาป่า"));
+    if (r==="aura" && t.length) note(G,i,"ส่อง “"+nm(G,t[0])+"”: "+(auraSpecial(P[t[0]])?"เป็นตัวละครพิเศษ ✨":"ชาวบ้าน/หมาป่าธรรมดา"));
+    if (r==="sorceress" && t.length) note(G,i,"ส่อง “"+nm(G,t[0])+"”: "+(P[t[0]].role==="seer"?"เป็นเทพพยากรณ์! 🔮":"ไม่ใช่เทพพยากรณ์"));
+    if (r==="investigator" && t.length){ p.f.used=true; const al=aliveIdx(G), k=al.indexOf(t[0]), tr=[al[(k+al.length-1)%al.length],t[0],al[(k+1)%al.length]];
+      const has=tr.some(j=>isKiller(P[j])); note(G,i,"ตรวจ “"+nm(G,t[0])+"” และเพื่อนซ้าย-ขวา ("+[...new Set(tr)].map(j=>nm(G,j)).join(", ")+"): "+(has?"มีมนุษย์หมาป่าปะปนอยู่":"ไม่มีมนุษย์หมาป่า")); }
+  });
+  /* kills */
+  if (G.bruteQ!=null){ const b=G.bruteQ; G.bruteQ=null; attempt(G,b,"หนุ่มถึกถูกหมาป่ากำจัด (เลื่อนมาคืนนี้)"); }
+  const wt = (N>=2 && !G.wolvesSick) ? wolfTarget(G) : null;
+  if (wt) wt.forEach(t=>{ const q=P[t]; if(!q.alive) return; L(G,"หมาป่าเลือก "+nm(G,t));
+    if (q.role==="vampire"){ L(G,"แวมไพร์ไม่ตายจากหมาป่า"); return; }
+    if (G.protect.has(t)){ L(G,nm(G,t)+" ถูกคุ้มครองจากหมาป่า"); return; }
+    if (q.role==="brute"){ G.bruteQ=t; L(G,"หนุ่มถึกรอดคืนนี้ แต่จะตายคืนถัดไป"); return; }
+    if (q.role==="cursed" && !q.f.converted){ q.f.converted=true; G.pack.add(t); note(G,t,"คุณถูกหมาป่ากัด! ตอนนี้คุณเป็นมนุษย์หมาป่าแล้ว"); L(G,nm(G,t)+" (ผู้ต้องคำสาป) กลายเป็นหมาป่า"); return; }
+    const died=kill(G,t,"ถูกมนุษย์หมาป่า"); if(died && q.role==="diseased"){ G.sickNext=true; L(G,"หมาป่าติดโรค คืนถัดไปกำจัดไม่ได้"); } });
+  else if (N>=2 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
+  else if (N>=2) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
+  P.forEach((p,i)=>{ const a=A[i]; if(p.role==="witch" && a && a.x!=null){ p.f.killUsed=true; L(G,"แม่มดวางยาพิษ "+nm(G,a.x)); attempt(G,a.x,"ยาพิษแม่มด"); } });
+  P.forEach((p,i)=>{ const a=A[i]; if(p.role==="vampire"&&p.alive&&a&&a.t&&a.t.length){ G.vampMark=a.t[0]; L(G,"แวมไพร์เลือก "+nm(G,a.t[0])); } });
+  /* dawn */
+  G.dayNo=N; G.votesLeft = G.dayDouble?2:1;
+  const d=[];
+  if (!G.deaths.length) d.push("คืนนี้ไม่มีใครถูกกำจัด"); else G.pub.forEach(x=>d.push(x));
+  if (G.ghostChars && N-1<G.ghostChars.length) d.push("👻 ตัวอักษรจากยมโลกตัวที่ "+N+": “"+G.ghostChars[N-1]+"”");
+  if (G.mute!=null && G.p[G.mute].alive) d.push("🤫 "+nm(G,G.mute)+" ถูกปิดปากตลอดวันนี้ (ห้ามพูด)");
+  if (G.hexed!=null && G.p[G.hexed].alive) d.push("🧙‍♀️ "+nm(G,G.hexed)+" ถูกสาป ออกจากเกมวันนี้ (ไม่พูด ไม่โหวต ไม่ถูกโหวต)");
+  if (G.dayDouble) d.push("🃏 วันนี้มีการโหวตกำจัด 2 คน");
+  G.dawn=d; settle(G,"day");
+}
+
+/* ---------- settle: hunters first, then win check ---------- */
+function settle(G,next){
+  if (G.hunterQ.length){ G.phase="hunter"; G.after=next; return; }
+  const w=checkWin(G); if(w){ finish(G,w); return; }
+  G.phase=next;
+  if (next==="vote"){ G.votes={}; }
+}
+function hunterShoot(G,t){
+  const h=G.hunterQ.shift(); if(h==null) return false;
+  const before=G.pub.length;
+  if (t!=null && G.p[t] && G.p[t].alive && t!==h){
+    if (t===G.hexed){ G.pub.push("นายพราน "+nm(G,h)+" ยิง "+nm(G,t)+" แต่คำสาปคุ้มครองไว้"); L(G,"นายพรานยิง "+nm(G,t)+" ไม่เข้า (ถูกแม่หมอสาป)"); }
+    else { G.pub.push("🎯 นายพราน "+nm(G,h)+" ยิง "+nm(G,t)); kill(G,t,"นายพรานยิง"); }
+  } else { G.pub.push("🎯 นายพราน "+nm(G,h)+" ยิงขึ้นฟ้า"); L(G,"นายพรานยิงขึ้นฟ้า"); }
+  const added=G.pub.slice(before);
+  if (G.after==="day") G.dawn=G.dawn.concat(added);
+  else if (G.after==="voteres" && G.voteres) G.voteres.extra=(G.voteres.extra||[]).concat(added);
+  else if (G.after==="vote") G.voteIntro=(G.voteIntro||[]).concat(added);
+  settle(G,G.after);
+  return true;
+}
+function eligibleVoters(G){ return aliveIdx(G).filter(i=>i!==G.hexed); }
+function startVote(G){
+  G.pub=[]; G.deaths=[];
+  if (G.vampMark!=null){ const t=G.vampMark; G.vampMark=null; if(G.p[t].alive){ G.pub.push("🧛 เหยื่อของแวมไพร์ถูกกำจัด"); kill(G,t,"แวมไพร์"); } }
+  G.voteIntro=G.pub.slice();
+  settle(G,"vote");
+}
+function submitVote(G,i,v){
+  if (G.phase!=="vote" || !eligibleVoters(G).includes(i)) return false;
+  const r=G.p[i].role; if(r==="idiot"||r==="pacifist") return false;
+  if (v==="none"){ G.votes[i]="none"; return true; }
+  if (Number.isInteger(v) && v!==i && G.p[v] && G.p[v].alive && v!==G.hexed){ G.votes[i]=v; return true; }
+  return false;
+}
+const voteDone = G => eligibleVoters(G).every(i=>{ const r=G.p[i].role; return r==="idiot"||r==="pacifist"||G.votes[i]!==undefined; });
+function tally(G){
+  const el=eligibleVoters(G), counts={}; let none=0; const idiots=[], ballots=[];
+  el.forEach(i=>{ const p=G.p[i], w=p.role==="mayor"?2:1;
+    if (p.role==="idiot"){ idiots.push(i); return; }
+    if (p.role==="pacifist"){ none+=w; ballots.push([i,"none"]); return; }
+    const v=G.votes[i]; if(v===undefined) return;
+    if (v==="none"){ none+=w; } else counts[v]=(counts[v]||0)+w; ballots.push([i,v]); });
+  idiots.forEach(i=>{ const cand=Object.keys(counts).map(Number); let pick;
+    if (cand.length){ const mx=Math.max(...cand.map(c=>counts[c])); const tops=cand.filter(c=>counts[c]===mx); pick=tops[rand(tops.length)]; }
+    else { const pool=el.filter(j=>j!==i); pick=pool[rand(pool.length)]; }
+    if (pick!=null){ counts[pick]=(counts[pick]||0)+1; ballots.push([i,pick]); } });
+  const keys=Object.keys(counts).map(Number); let elim=null;
+  if (keys.length){ const mx=Math.max(...keys.map(k=>counts[k])); const tops=keys.filter(k=>counts[k]===mx); if (tops.length===1 && mx>none) elim=tops[0]; }
+  return { counts, none, elim, ballots };
+}
+function endVote(G){
+  G.pub=[]; G.deaths=[]; const t=tally(G); G.votesLeft--;
+  const lines=t.ballots.map(([v,x])=>nm(G,v)+" → "+(x==="none"?"ไม่กำจัดใคร":nm(G,x)));
+  let text; L(G,"โหวต: "+lines.join(" | "));
+  if (t.elim==null) text="โหวตไม่ลงตัว ไม่มีใครถูกกำจัด";
+  else { const e=t.elim, p=G.p[e];
+    if (p.role==="prince"){ text="👑 "+nm(G,e)+" คือเจ้าชาย! ไม่ถูกกำจัด การโหวตวันนี้ยกเลิก เข้าสู่กลางคืนทันที"; G.votesLeft=0; }
+    else { if (p.role==="beggar"){ G.beggarWon=true; G.pub.push("🥣 ยาจกชนะแล้ว! (เกมยังดำเนินต่อ)"); L(G,"ยาจกชนะ"); }
+      const died=kill(G,e,"ถูกโหวตกำจัด"); text = died ? G.pub.filter(x=>x.indexOf("ถูกกำจัด")>=0)[0] || (nm(G,e)+" ถูกกำจัด") : nm(G,e)+" ถูกโหวต แต่ไม่ตาย"; } }
+  G.voteres={ text, lines, extra:G.pub.filter(x=>x!==text) };
+  settle(G,"voteres");
+}
+function afterVote(G){ if (G.votesLeft>0){ G.pub=[]; startVote(G); } else startNight(G); }
+
+/* ---------- win conditions ---------- */
+function checkWin(G){
+  const al=aliveIdx(G), P=G.p;
+  if (!al.length) return {w:"none",text:"ไม่มีผู้รอดชีวิต เสมอกัน"};
+  if (al.length===2 && P[al[0]].f.lover===al[1]){
+    const tm=i=>wolfSide(P[i])?"w":(P[i].role==="vampire"?"x":"v");
+    if (tm(al[0])!==tm(al[1])) return {w:"lovers",text:"คู่รักข้ามฝ่ายอยู่รอดเป็นสองคนสุดท้าย 💘"};
+  }
+  const leader=al.find(i=>P[i].f.cultLeader);
+  if (leader!=null && al.length>1 && al.every(i=>P[i].f.cult)) return {w:"cult",text:"ผู้เล่นที่เหลือทุกคนอยู่ในลัทธิ 🌀"};
+  const killers=al.filter(i=>isKiller(P[i])), wteam=al.filter(i=>wolfSide(P[i])), vamps=al.filter(i=>P[i].role==="vampire");
+  const lone=al.find(i=>P[i].role==="lone");
+  if (!killers.length && !vamps.length) return {w:"village",text:"มนุษย์หมาป่าถูกกำจัดหมดแล้ว ฝ่ายชาวบ้านชนะ 🏘️"};
+  if (lone!=null && al.length<=2) return {w:"lone",text:"มนุษย์หมาป่าเดียวดายอยู่รอดคนสุดท้าย 🌑"};
+  if (vamps.length){
+    if (al.length===vamps.length) return {w:"vamp",text:"เหลือแต่แวมไพร์ 🧛"};
+    if (!killers.length && vamps.length>=al.length-vamps.length) return {w:"vamp",text:"แวมไพร์ครองหมู่บ้าน 🧛"};
+    if (al.length===wteam.length) return {w:"wolf",text:"เหลือแต่ฝ่ายมนุษย์หมาป่า 🐺"};
+    return null;
+  }
+  const others=al.length-wteam.length;
+  if (lone!=null){ if (others===0) return {w:"wolf",text:"เหลือแต่ฝ่ายมนุษย์หมาป่า 🐺"}; return null; }
+  if (wteam.length>=others) return {w:"wolf",text:"ฝ่ายมนุษย์หมาป่ามีจำนวนเท่ากับหรือมากกว่าที่เหลือ 🐺"};
+  return null;
+}
+function finish(G,w){
+  const ex=[];
+  G.p.forEach((p,i)=>{ if(p.role==="beggar"&&G.beggarWon) ex.push(p.name+" (ยาจก) ชนะเพราะถูกโหวตออก");
+    if(p.role==="bandit"&&p.alive&&p.f.marks&&p.f.marks.every(m=>!G.p[m].alive)) ex.push(p.name+" (อันธพาล) ชนะเพิ่ม"); });
+  G.over={ w:w.w, text:w.text, extra:ex }; G.phase="over"; L(G,"จบเกม: "+w.text);
+}
+function winnersOf(G){ /* seats that won */
+  const w=G.over.w, P=G.p, s=new Set();
+  P.forEach((p,i)=>{ const side = (p.role==="lone")?"lone":(wolfSide({...p,alive:true})||(p.role==="cursed"&&p.f.converted))?"wolf":p.role==="vampire"?"vamp":"village";
+    if (w==="village" && side==="village" && p.role!=="beggar") s.add(i);
+    if (w==="wolf" && side==="wolf") s.add(i);
+    if (w==="vamp" && side==="vamp") s.add(i);
+    if (w==="lone" && side==="lone") s.add(i);
+    if (w==="cult" && p.f.cult) s.add(i);
+    if (w==="lovers" && p.f.lover!=null && p.alive) s.add(i);
+    if (p.role==="beggar"&&G.beggarWon) s.add(i);
+    if (p.role==="bandit"&&p.alive&&p.f.marks&&p.f.marks.every(m=>!G.p[m].alive)) s.add(i);
+    if (w==="village" && p.role==="ghost") s.add(i);
+  });
+  return [...s];
+}
+
+/* ---------- deck helpers ---------- */
+function deckSum(c){ let s=0, n=0; Object.keys(c).forEach(k=>{ if(RM[k]){ s+=RM[k].v*c[k]; n+=c[k]; } }); return {sum:s,n}; }
+function autoDeck(N){
+  const wolfPool=["lone","cub","minion","sorceress"], spec=ROLES.filter(r=>r.t!=="w"&&r.id!=="villager"&&r.id!=="mason"&&r.id!=="apprentice").map(r=>r.id);
+  let best=null, bestS=1e9;
+  for (let tr=0;tr<600;tr++){
+    const c={}; const add=(k,n)=>{ c[k]=(c[k]||0)+(n||1); };
+    const wn=Math.max(1,Math.round(N/4)); add("werewolf",wn);
+    if (N>=7 && Math.random()<.35) add("minion"); else if (N>=8 && Math.random()<.2) add("sorceress");
+    if (N>=9 && Math.random()<.15) add("cub");
+    let have=deckSum(c).n; const sp=shuffle(spec);
+    if (N>=8 && Math.random()<.5 && have+3<=N) { add("seer"); add("apprentice"); have+=2; }
+    else if (Math.random()<.8 && have<N) { add("seer"); have++; }
+    if (N>=8 && Math.random()<.35 && have+2<=N) { add("mason",2); have+=2; }
+    while (have<N){ if (Math.random()<.35 || !sp.length){ add("villager"); } else { const k=sp.pop(); if(!c[k]) add(k); else add("villager"); } have=deckSum(c).n; }
+    if (c.apprentice && !c.seer) continue;
+    const s=Math.abs(deckSum(c).sum)+Math.random()*.5; if (s<bestS){ bestS=s; best=c; }
+  }
+  return best;
+}
+/* ================= online: PeerJS, host = moderator ================= */
+const ON_ID="werewolf-", ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const ICE={config:{iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:global.stun.twilio.com:3478"}]}};
+const O={ phase:"entry", role:null, name:"", joinCode:"", code:"", peer:null, conn:null, me:-1, lobby:null, view:null, err:"", leaving:false, ui:{sel:[],h:null,x:null,txt:"",key:"",peek:false,revealCard:true} };
+try{ O.name=localStorage.getItem("ww-name")||""; }catch(e){}
+try{ const q=new URLSearchParams(location.search).get("room"); if(q) O.joinCode=q.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4); }catch(e){}
+let H=null;
+const clean=(s,n)=>String(s||"").replace(/\s+/g," ").trim().slice(0,n||20);
+function toast(m){ const d=document.createElement("div"); d.className="toast"; d.textContent=m; document.body.appendChild(d); setTimeout(()=>d.remove(),3000); }
+function getPid(code){ const k="ww-pid-"+code; try{ let p=sessionStorage.getItem(k); if(!p){ p="p"+Math.random().toString(36).slice(2,12); sessionStorage.setItem(k,p);} return p; }catch(e){ return "p"+Math.random().toString(36).slice(2,12); } }
+function errText(e){ const t=e&&e.type; if(t==="peer-unavailable") return "ไม่พบห้องรหัสนี้ ตรวจรหัสอีกครั้ง และให้ผู้ดำเนินเกมเปิดหน้าเกมค้างไว้"; if(t==="network"||t==="server-error"||t==="socket-error"||t==="socket-closed") return "เชื่อมต่อเซิร์ฟเวอร์กลางไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่"; return "เชื่อมต่อไม่สำเร็จ ("+(t||"unknown")+")"; }
+function onFail(msg){ try{O.conn&&O.conn.close();}catch(e){} try{O.peer&&O.peer.destroy();}catch(e){} H=null; const k={name:O.name,joinCode:O.joinCode}; Object.assign(O,{phase:"entry",role:null,peer:null,conn:null,lobby:null,view:null,err:msg},k); render(); }
+function leave(){ O.leaving=true; try{ if(O.role==="host"&&H) hostAll({t:"closed"}); }catch(e){} try{O.conn&&O.conn.close();}catch(e){} try{O.peer&&O.peer.destroy();}catch(e){} H=null; Object.assign(O,{phase:"entry",role:null,peer:null,conn:null,lobby:null,view:null,err:"",code:"",me:-1}); render(); }
+
+function toHost(m){ if(O.role==="host") hostRecv(0,m); else { try{ if(O.conn&&O.conn.open) O.conn.send(m);}catch(e){} } }
+function hostSend(i,m){ if(i===0) clientRecv(m); else { const p=H.players[i]; if(p&&p.conn&&p.conn.open){ try{p.conn.send(m);}catch(e){} } } }
+function hostAll(m){ for(let i=0;i<H.players.length;i++) if(i===0||H.players[i].connected) hostSend(i,m); }
+
+function onCreate(){
+  const name=clean(O.name); if(!name){ O.err="ใส่ชื่อของคุณก่อน"; render(); return; }
+  if(!window.Peer){ O.err="โหลดระบบออนไลน์ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วรีเฟรช"; render(); return; }
+  try{localStorage.setItem("ww-name",name);}catch(e){}
+  O.name=name; O.err=""; O.role="host"; O.phase="connecting"; O.leaving=false; render(); tryHost(0);
+}
+function genCode(){ let c=""; for(let i=0;i<4;i++) c+=ALPHA[rand(ALPHA.length)]; return c; }
+function tryHost(n){
+  const code=genCode(); let peer, opened=false;
+  try{ peer=new Peer(ON_ID+code,ICE); }catch(e){ onFail("เริ่มระบบออนไลน์ไม่สำเร็จ"); return; }
+  O.peer=peer;
+  const to=setTimeout(()=>{ if(!opened) onFail("เชื่อมต่อเซิร์ฟเวอร์กลางไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่"); },15000);
+  peer.on("open",()=>{ opened=true; clearTimeout(to);
+    H={ players:[{pid:"host",name:O.name,conn:null,connected:true}], phase:"lobby", settings:{counts:{werewolf:1,seer:1,villager:2},reveal:true,intro:30,day:5}, G:null, ready:new Set(), introEnd:0, dayEnd:0, wolfChat:[] };
+    O.code=code; O.me=0; O.phase="lobby"; pushAll(); });
+  peer.on("connection",hostConn);
+  peer.on("disconnected",()=>{ try{peer.reconnect();}catch(e){} });
+  peer.on("error",err=>{ if(!opened){ clearTimeout(to); if(err&&err.type==="unavailable-id"&&n<5){ try{peer.destroy();}catch(e){} tryHost(n+1);} else onFail(errText(err)); } });
+}
+function onJoin(){
+  const name=clean(O.name), code=String(O.joinCode||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(!name){ O.err="ใส่ชื่อของคุณก่อน"; render(); return; }
+  if(code.length!==4){ O.err="รหัสห้องมี 4 ตัวอักษร"; render(); return; }
+  if(!window.Peer){ O.err="โหลดระบบออนไลน์ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วรีเฟรช"; render(); return; }
+  try{localStorage.setItem("ww-name",name);}catch(e){}
+  O.name=name; O.joinCode=code; O.code=code; O.err=""; O.role="client"; O.phase="connecting"; O.leaving=false; render();
+  let peer; try{ peer=new Peer(ICE);}catch(e){ onFail("เริ่มระบบออนไลน์ไม่สำเร็จ"); return; }
+  O.peer=peer; let done=false;
+  const to=setTimeout(()=>{ if(!done){ done=true; onFail("ติดต่อห้องไม่ได้ ตรวจรหัสห้องและอินเทอร์เน็ต แล้วลองใหม่"); } },15000);
+  peer.on("open",()=>{ const conn=peer.connect(ON_ID+code,{reliable:true}); O.conn=conn;
+    conn.on("open",()=>conn.send({t:"join",pid:getPid(code),name}));
+    conn.on("data",d=>{ if(!d||typeof d.t!=="string") return; if(d.t==="joined"||d.t==="reject"){ done=true; clearTimeout(to);} clientRecv(d); });
+    conn.on("close",()=>{ if(!O.leaving&&O.role==="client"&&O.phase!=="entry"&&O.phase!=="connecting") clientRecv({t:"closed"}); });
+    conn.on("error",()=>{}); });
+  peer.on("error",err=>{ if(!done){ done=true; clearTimeout(to); onFail(errText(err)); } });
+}
+function hostConn(conn){
+  const idxOf=()=>H?H.players.findIndex(p=>p.conn===conn):-1;
+  conn.on("data",d=>{ if(!H||!d||typeof d.t!=="string") return; if(d.t==="join") hostJoin(conn,d); else { const i=idxOf(); if(i>0) hostRecv(i,d); } });
+  conn.on("close",()=>{ const i=idxOf(); if(i>0) hostDrop(i); });
+  conn.on("error",()=>{});
+}
+function hostJoin(conn,d){
+  const send=m=>{ try{conn.send(m);}catch(e){} };
+  const pid=String(d.pid||"").slice(0,40); let name=clean(d.name)||"ผู้เล่น";
+  const old=H.players.findIndex((p,i)=>i>0&&p.pid===pid);
+  if(old>0){ const p=H.players[old]; if(p.conn&&p.conn!==conn){ const oc=p.conn; p.conn=null; try{oc.close();}catch(e){} } p.conn=conn; p.connected=true; send({t:"joined",idx:old,code:O.code}); pushAll(); return; }
+  if(H.phase!=="lobby"){ send({t:"reject",reason:"started"}); setTimeout(()=>{try{conn.close();}catch(e){}},400); return; }
+  if(H.players.length>=21){ send({t:"reject",reason:"full"}); setTimeout(()=>{try{conn.close();}catch(e){}},400); return; }
+  const base=name; let k=2; while(H.players.some(p=>p.name===name)) name=base+" ("+(k++)+")";
+  H.players.push({pid,name,conn,connected:true}); send({t:"joined",idx:H.players.length-1,code:O.code}); pushAll();
+}
+function hostDrop(i){ const p=H.players[i]; if(!p) return; if(H.phase==="lobby"){ H.players.splice(i,1); pushAll(); return; } p.connected=false; p.conn=null; pushAll(); }
+
+/* ----- seat helpers: net index = seat + 1 ----- */
+const seatOf=i=>i-1, netOf=s=>s+1;
+
+/* ----- host commands ----- */
+function hostRecv(i,d){
+  if(!H) return; const G=H.G, ph=H.phase;
+  if(d.t==="cmd" && i===0) return modCmd(d);
+  if(i===0) return;  // moderator has no seat
+  const s=seatOf(i);
+  if(d.t==="ready" && ph==="deal"){ H.ready.add(s); pushAll(); }
+  else if(d.t==="act" && ph==="night" && G.phase==="night"){ if(submitAct(G,s,d.a)){ H.dirty=1; pushAll(); if(nightReady(G)) { H.nightAuto=Date.now()+1500; } else H.nightAuto=0; } }
+  else if(d.t==="vote" && G&&G.phase==="vote"){ if(submitVote(G,s,d.v)) pushAll(); }
+  else if(d.t==="shoot" && G&&G.phase==="hunter" && G.hunterQ[0]===s){ hunterShoot(G,d.v==null?null:+d.v); pushAll(); }
+  else if(d.t==="chat" && G&&G.phase==="night"){ const p=G.p[s]; if(p&&isKiller(p)&&p.alive){ const txt=clean(d.s,40); if(txt){ H.wolfChat.push({n:p.name,s:txt}); if(H.wolfChat.length>30) H.wolfChat.shift(); pushAll(); } } }
+}
+function modCmd(d){
+  const G=H.G;
+  switch(d.c){
+    case "settings": if(H.phase==="lobby"){ const st=H.settings; if(d.counts){ const c={}; Object.keys(d.counts).forEach(k=>{ if(RM[k]){ const n=Math.max(0,Math.min(RM[k].max,+d.counts[k]|0)); if(n) c[k]=n; } }); st.counts=c; }
+        if(d.reveal!=null) st.reveal=!!d.reveal; if([0,20,30,45,60].includes(+d.intro)) st.intro=+d.intro; if([3,5,8,10,15].includes(+d.day)) st.day=+d.day; pushAll(); } break;
+    case "auto": if(H.phase==="lobby"){ const n=H.players.length-1; if(n>=4){ H.settings.counts=autoDeck(n); pushAll(); } } break;
+    case "start": hostStart(); break;
+    case "intro": if(H.phase==="deal"&&G.phase==="deal"){ if(H.settings.intro>0){ startIntro(G); H.phase="intro"; H.introEnd=Date.now()+H.settings.intro*1000; } else { startNight(G); H.phase="night"; } pushAll(); } break;
+    case "introNext": if(H.phase==="intro"){ if(introNext(G)) H.introEnd=Date.now()+H.settings.intro*1000; else { H.phase="introdone"; } pushAll(); } break;
+    case "night": if(H.phase==="introdone"||H.phase==="intro"||(H.phase==="deal"&&G.phase==="deal")){ startNight(G); H.phase="night"; H.wolfChat=[]; pushAll(); } else if(G&&G.phase==="voteres"){ afterVote(G); afterPhase(); } break;
+    case "endnight": if(G&&G.phase==="night"){ endNight(G); afterPhase(); } break;
+    case "vote": if(G&&G.phase==="day"){ startVote(G); afterPhase(); } break;
+    case "endvote": if(G&&G.phase==="vote"){ endVote(G); afterPhase(); } break;
+    case "shoot": if(G&&G.phase==="hunter"){ hunterShoot(G,d.v==null?null:+d.v); afterPhase(); } break;
+    case "again": if(H.phase==="over"||H.phase==="intro"||H.phase==="deal"||G){ H.G=null; H.phase="lobby"; H.players=H.players.filter((p,k)=>k===0||p.connected); pushAll(); } break;
+  }
+}
+function afterPhase(){ const G=H.G; if(G.phase==="day") H.dayEnd=Date.now()+H.settings.day*60000; H.wolfChat=[]; pushAll(); }
+function hostStart(){
+  if(H.phase!=="lobby") return;
+  H.players=H.players.filter((p,i)=>i===0||p.connected);
+  const n=H.players.length-1, c=H.settings.counts, ids=[]; Object.keys(c).forEach(k=>{ for(let j=0;j<c[k];j++) ids.push(k); });
+  if(n<4){ toast("ต้องมีผู้เล่นอย่างน้อย 4 คน (ไม่นับผู้ดำเนินเกม)"); return; }
+  if(ids.length!==n){ toast("จำนวนไพ่ ("+ids.length+") ต้องเท่ากับจำนวนผู้เล่น ("+n+")"); return; }
+  H.G=newGame(H.players.slice(1).map(p=>p.name),ids,{reveal:H.settings.reveal}); H.phase="deal"; H.ready=new Set(); H.wolfChat=[]; pushAll();
+}
+
+/* ----- views ----- */
+function nightReady(G){ if(!nightDone(G)) return false; const w=G.p.some((p,i)=>{ const sp=isKiller(p)&&nightSpec(G,i); return sp&&sp.k==="wolf"; }); return !w||wolfTarget(G)!==null; }
+function pushAll(){
+  if(!H) return;
+  if(H.G&&H.G.phase==="over") H.phase="over";
+  const lobby={ t:"lobby", players:H.players.map(p=>({name:p.name,connected:p.connected})), settings:H.settings, hostPhase:H.phase };
+  for(let i=0;i<H.players.length;i++){ if(i>0&&!H.players[i].connected) continue;
+    hostSend(i,{t:"lobby",me:i,players:lobby.players,settings:H.settings,hostPhase:H.phase});
+    if(H.G) hostSend(i,{t:"view",v:viewFor(i)}); }
+}
+function pubPlayers(G,rev){ return G.p.map((p,i)=>({ name:p.name, alive:p.alive, ghost:p.ghost, role:(!p.alive&&(G.reveal||G.over||p.ghost))?RM[p.role].th:null, e:(!p.alive&&(G.reveal||G.over||p.ghost))?RM[p.role].e:null, hexed:G.hexed===i&&p.alive, muted:G.mute===i&&p.alive, conn:H.players[i+1]?H.players[i+1].connected:false })); }
+function infoLines(G,i){
+  const p=G.p[i], L2=[], N=j=>G.p[j].name, tag=j=>N(j)+" ("+RM[G.p[j].role].th+(G.p[j].alive?"":" ✝")+")";
+  if(isKiller(p)||p.role==="minion"){ const o=[...G.pack].filter(j=>j!==i&&G.p[j].role!=="sorceress"||true).filter(j=>j!==i); if(o.length) L2.push("🐺 พวกเดียวกัน: "+o.map(tag).join(", ")); }
+  if(p.role==="mason"){ const o=G.p.map((q,j)=>j).filter(j=>j!==i&&G.p[j].role==="mason"); L2.push(o.length?"🧱 เมสันด้วยกัน: "+o.map(N).join(", "):"🧱 คุณเป็นเมสันคนเดียวในเกมนี้"); }
+  if(p.f.lover!=null) L2.push("💘 คู่รักของคุณ: "+N(p.f.lover));
+  if(p.f.cultLeader&&G.cultOrder.length) L2.push("🌀 สมาชิกลัทธิ: "+G.cultOrder.map(N).join(", "));
+  if(p.role==="bandit"&&p.f.marks) L2.push("🗡️ เป้าหมาย: "+p.f.marks.map(N).join(" และ "));
+  if(p.role==="doppel"&&p.f.copy!=null) L2.push("🎭 คุณกำลังรอลอกบทบาทของ "+N(p.f.copy));
+  return L2;
+}
+function promptFor(G,s){
+  if(G.phase==="night"){ const sp=nightSpec(G,s); if(sp){ return Object.assign({},sp,{done:!!G.acts[s]}); }
+    if(G.wolvesSick&&isKiller(G.p[s])&&G.night>=2) return {k:"info",title:"ติดโรค",hint:"คืนนี้พวกคุณเลือกเหยื่อไม่ได้"}; }
+  if(G.phase==="hunter"&&G.hunterQ[0]===s) return {k:"hunter",pool:aliveIdx(G).filter(j=>j!==s),title:"คุณคือนายพราน!",hint:"เลือกผู้ที่จะยิงตามไป หรือยิงขึ้นฟ้า"};
+  if(G.phase==="vote"&&eligibleVoters(G).includes(s)){ const r=G.p[s].role; const pool=eligibleVoters(G).filter(j=>j!==s);
+    if(r==="idiot") return {k:"auto",title:"ไอ้ทึ่ม",hint:"เสียงของคุณจะไปอยู่กับผู้ที่คะแนนนำเอง"};
+    if(r==="pacifist") return {k:"auto",title:"ผู้รักสันติ",hint:"เสียงของคุณคือ “ไม่กำจัดใคร” โดยอัตโนมัติ"};
+    return {k:"vote",pool,done:G.votes[s]!==undefined,mine:G.votes[s]}; }
+  return null;
+}
+function viewFor(i){
+  const G=H.G, mod=i===0, s=seatOf(i), base={ phase:H.phase, g:G.phase, night:G.night, dayNo:G.dayNo, reveal:G.reveal, players:pubPlayers(G),
+    dawn:G.dawn, voteIntro:G.voteIntro||[], voteres:G.voteres, votesLeft:G.votesLeft, introEnd:H.introEnd, introPos:G.introPos, introWho:G.introOrder[G.introPos], introTotal:G.introOrder.length, introSecs:H.settings.intro, dayEnd:H.dayEnd, dayMins:H.settings.day,
+    votedN:Object.keys(G.votes).length, voteTot:G.phase==="vote"?eligibleVoters(G).filter(j=>!["idiot","pacifist"].includes(G.p[j].role)).length:0,
+    hunterWho:G.hunterQ.length?G.p[G.hunterQ[0]].name:null, readyN:H.ready.size, readyTot:G.N, ghostChars:G.ghostChars&&G.night>=1?G.ghostChars.slice(0,G.night):null };
+  if(G.over){ base.over={ w:G.over.w, text:G.over.text, extra:G.over.extra, win:winnersOf(G), roles:G.p.map(p=>({n:p.name,r:RM[p.role].th,e:RM[p.role].e,alive:p.alive})) }; }
+  if(mod){ base.mod={ roles:G.p.map((p,k)=>({n:p.name,id:p.role,r:RM[p.role].th,e:RM[p.role].e,alive:p.alive,tags:modTags(G,k)})), waiting:G.phase==="night"?pendingActors(G):[], wolfSplit:G.phase==="night"&&nightDone(G)&&!nightReady(G), log:G.log.slice(-40), ready:[...H.ready], wolfChat:H.wolfChat, sum:deckSum(H.settings.counts).sum, hunterSeat:G.hunterQ.length?G.hunterQ[0]:null };
+    return base; }
+  const p=G.p[s]; base.me=s;
+  base.priv={ role:p.role, rn:RM[p.role].th, e:RM[p.role].e, d:RM[p.role].d, v:RM[p.role].v, t:RM[p.role].t, alive:p.alive, ghost:p.ghost,
+    info:infoLines(G,s), msgs:p.f.msgs.slice(0,8), prompt:promptFor(G,s), ready:H.ready.has(s), converted:!!p.f.converted };
+  if(G.phase==="night"&&isKiller(p)&&p.alive){ base.wolves=[...G.pack].filter(j=>isKiller(G.p[j])).map(j=>({n:G.p[j].name,pick:(G.acts[j]&&G.acts[j].t)?G.acts[j].t.map(x=>G.p[x].name):null})); base.chat=H.wolfChat; }
+  return base;
+}
+function modTags(G,k){ const p=G.p[k], t=[]; if(p.f.lover!=null) t.push("💘"+G.p[p.f.lover].name); if(p.f.cult) t.push("🌀ลัทธิ"); if(p.f.shield) t.push("🛡พร"); if(p.f.converted) t.push("🐺กลายเป็นหมาป่า"); if(p.role==="drunk"&&p.trueRole) t.push("จริงๆคือ "+RM[p.trueRole].th); if(G.hexed===k) t.push("ถูกสาป"); if(G.mute===k) t.push("ใบ้"); if(p.f.used) t.push("ใช้พลังแล้ว"); return t; }
+
+function clientRecv(m){
+  switch(m.t){
+    case "joined": O.me=m.idx; O.code=m.code; O.phase="lobby"; break;
+    case "reject": onFail(m.reason==="started"?"เกมเริ่มไปแล้ว เข้าร่วมไม่ได้":"ห้องเต็มแล้ว"); return;
+    case "lobby": O.me=m.me; O.lobby=m; O.phase=O.phase==="entry"?"entry":"lobby"; if(m.hostPhase==="lobby"){ O.view=null; } break;
+    case "view": O.view=m.v; break;
+    case "closed": onFail("ผู้ดำเนินเกมปิดห้องแล้ว หรือการเชื่อมต่อขาด"); return;
+  }
+  const v=O.view; if(v){ const key=(v.phase+"|"+v.night+"|"+v.g+"|"+v.votesLeft+"|"+(v.priv&&v.priv.prompt?v.priv.prompt.k:"")); if(key!==O.ui.key){ O.ui.key=key; O.ui.sel=[]; O.ui.h=null; O.ui.x=null; if(v.phase==="deal") O.ui.revealCard=true; } sfxFor(v); }
+  render();
+}
+let lastSfx="";
+function sfxFor(v){ const k=v.phase+"|"+v.night+"|"+v.g+"|"+(v.dawn?v.dawn.length:0)+"|"+(v.voteres?1:0); if(k===lastSfx) return; lastSfx=k;
+  if(v.phase==="night") tone([220,165],.25); else if(v.g==="day") tone([392,523],.18); else if(v.g==="vote") tone([330,330],.12); else if(v.phase==="over") tone([523,659,784],.2); else if(v.phase==="intro") tone([440],.12); }
+let AC=null; function tone(fr,d){ try{ if(!O.sound&&O.sound!==undefined) return; AC=AC||new (window.AudioContext||window.webkitAudioContext)(); fr.forEach((f,k)=>{ const o=AC.createOscillator(),g=AC.createGain(); o.frequency.value=f; o.connect(g); g.connect(AC.destination); const t=AC.currentTime+k*d; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.18,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+d*.95); o.start(t); o.stop(t+d); }); }catch(e){} }
+setInterval(()=>{ if(O.role==="host"&&H&&H.G&&H.phase==="night"&&H.nightAuto&&Date.now()>H.nightAuto&&H.G.phase==="night"&&nightReady(H.G)){ H.nightAuto=0; endNight(H.G); afterPhase(); } },400);
+/* ================= UI ================= */
+const $app=document.getElementById("app");
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sg=n=>(n>0?"+":n<0?"−":"")+Math.abs(n);
+const TEAMN={v:"ฝ่ายชาวบ้าน",w:"ฝ่ายมนุษย์หมาป่า",x:"ฝ่ายอื่น"};
+function valChip(r){ return '<span class="val '+(r.v>0?"pos":r.v<0?"neg":"zero")+'">'+sg(r.v)+'</span>'; }
+function balance(counts){
+  const {sum,n}=deckSum(counts); let w=0,v=0,x=0,wv=0,vv=0;
+  Object.keys(counts).forEach(k=>{ const r=RM[k]; if(!r)return; const c=counts[k]; if(r.t==="w"){w+=c;wv+=r.v*c;} else if(r.t==="x"){x+=c;wv+=r.v*c;} else {v+=c;vv+=r.v*c;} });
+  const a=Math.abs(sum); let lab,cls;
+  if(!n){ lab="ยังไม่ได้เลือกไพ่"; cls="ok"; }
+  else if(a<=2){ lab="สมดุลดี"; cls="ok"; } else if(a<=5){ lab=sum>0?"เอนเอียงไปทางฝ่ายมนุษย์เล็กน้อย":"เอนเอียงไปทางหมาป่าเล็กน้อย"; cls="warn"; }
+  else { lab=sum>0?"ฝ่ายมนุษย์ได้เปรียบมาก":"หมาป่าได้เปรียบมาก"; cls="bad"; }
+  const pos=Math.max(0,Math.min(100,50+sum*2.5));
+  return '<div class="meter"><div class="bar"><i class="mid"></i><b style="left:'+pos+'%"></b></div><div class="bl"><span>หมาป่าได้เปรียบ</span><span>มนุษย์ได้เปรียบ</span></div>'+
+   '<div class="bsum '+cls+'"><strong>'+sg(sum)+'</strong> '+lab+'</div><div class="hint">ฝ่ายชาวบ้าน '+v+' ใบ ('+sg(vv)+') · ฝ่ายหมาป่า/ฝ่ายอื่น '+(w+x)+' ใบ ('+sg(wv)+') · รวม '+n+' ใบ</div></div>';
+}
+function fmt(ms){ ms=Math.max(0,ms); const s=Math.ceil(ms/1000); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+const timer=(end,cls)=>'<span class="clock '+(cls||"")+'" data-end="'+end+'">'+fmt(end-Date.now())+'</span>';
+setInterval(()=>{ document.querySelectorAll("[data-end]").forEach(el=>{ const r=+el.dataset.end-Date.now(); el.textContent=fmt(r); el.classList.toggle("low",r<10000); }); },250);
+
+function roster(v,mod){
+  return '<div class="roster">'+v.players.map((p,i)=>{
+    let st=p.alive?"":"dead"; const tg=[]; if(p.hexed) tg.push("🧙‍♀️ถูกสาป"); if(p.muted) tg.push("🤫ใบ้"); if(!p.alive&&p.role) tg.push((p.e||"")+" "+p.role); if(!p.conn&&!p.ghost&&p.alive) tg.push("⚠️หลุด");
+    const m=mod&&v.mod?v.mod.roles[i]:null;
+    return '<div class="pl '+st+'"><span class="nm">'+(p.alive?"🟢":p.ghost?"👻":"💀")+" "+esc(p.name)+(v.me===i?" (คุณ)":"")+'</span><span class="tg">'+(m?m.e+" "+esc(m.r)+(m.tags.length?" · "+esc(m.tags.join(" ")):""):esc(tg.join(" · ")))+'</span></div>'; }).join("")+'</div>';
+}
+function cardBlock(pv,big){
+  return '<div class="rcard '+(pv.t==="w"?"wolf":pv.t==="x"?"third":"vill")+(big?" big":"")+'"><div class="em">'+pv.e+'</div><div class="rn">'+esc(pv.rn)+'</div><div class="rm">'+TEAMN[pv.t]+' · '+valChip({v:pv.v})+'</div><p>'+esc(pv.d)+'</p>'+(pv.role==="cursed"&&pv.converted?'<p class="warnbox">ตอนนี้คุณเป็นมนุษย์หมาป่าแล้ว</p>':"")+'</div>';
+}
+
+/* ---------- entry / lobby ---------- */
+function vEntry(){
+  const connecting=O.phase==="connecting";
+  return '<div class="brand"><div class="mark">🐺 มนุษย์หมาป่า</div><p>เกมจับผิดหมาป่าออนไลน์ เล่นบนมือถือของตัวเอง คุยกันผ่านสายนอกเกม มีเพื่อนหนึ่งคนเป็นผู้ดำเนินเกม</p></div>'+
+  '<div class="panel"><label class="label" for="nm">ชื่อของคุณ</label><input id="nm" maxlength="20" value="'+esc(O.name)+'" placeholder="เช่น บีม" autocomplete="off">'+
+  (O.err?'<div class="errbox">'+esc(O.err)+'</div>':"")+
+  '<div class="label">เข้าร่วมห้อง (ผู้เล่น)</div><div class="row"><input id="cd" class="code" maxlength="4" value="'+esc(O.joinCode)+'" placeholder="รหัส 4 ตัว" autocapitalize="characters" autocomplete="off"><button class="btn primary" data-a="join" '+(connecting?"disabled":"")+'>เข้าร่วม</button></div>'+
+  '<div class="label">หรือ</div><button class="btn block" data-a="create" '+(connecting?"disabled":"")+'>สร้างห้อง (คุณเป็นผู้ดำเนินเกม ไม่ได้เล่น)</button>'+
+  (connecting?'<div class="hint">กำลังเชื่อมต่อ…</div>':"")+'</div>'+
+  '<details class="panel rules"><summary>วิธีเล่นสั้นๆ</summary><ol><li>เพื่อนคนหนึ่งสร้างห้องเป็นผู้ดำเนินเกม คนอื่นกรอกรหัสเข้าร่วม</li><li>ผู้ดำเนินเกมเลือกไพ่ ดูมิเตอร์ความสมดุล แล้วเริ่มเกม ทุกคนดูไพ่ของตัวเองบนมือถือ</li><li>กลางคืน ทุกคนปิดไมค์และเลือกพลังบนมือถือ กลางวันคุยกันในสายแล้วโหวตในเกม</li><li>ฝ่ายชาวบ้านต้องกำจัดมนุษย์หมาป่า ส่วนหมาป่าต้องมีจำนวนเท่ากับหรือมากกว่าที่เหลือ</li></ol></details>';
+}
+function modLobby(){
+  const lb=O.lobby, st=lb.settings, c=st.counts, nPl=lb.players.length-1, tot=deckSum(c).n;
+  const grp=(t,title)=>'<div class="label">'+title+'</div>'+ROLES.filter(r=>t==="v"?(r.t==="v"&&r.v>0):t==="n"?(r.t==="v"&&r.v<=0):(r.t==="w"||r.t==="x")).map(r=>{ const n=c[r.id]||0;
+    return '<div class="rrow '+(n?"on":"")+'"><div class="rinfo"><span class="e">'+r.e+'</span><div><div class="rt">'+esc(r.th)+' '+valChip(r)+(UNSURE[r.id]?' <span class="q" title="'+esc(UNSURE[r.id])+'">?</span>':"")+'</div><div class="rd">'+esc(r.d)+'</div></div></div><div class="stepper"><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="-1" aria-label="ลด">−</button><span class="num">'+n+'</span><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="1" aria-label="เพิ่ม">+</button></div></div>'; }).join("");
+  const warns=[]; if(c.apprentice&&!c.seer) warns.push("มีศิษย์เทพพยากรณ์แต่ไม่มีเทพพยากรณ์"); if(c.mason===1) warns.push("เมสันควรมีอย่างน้อย 2 คน"); if(!(c.werewolf||c.lone||c.cub)) warns.push("ยังไม่มีมนุษย์หมาป่าตัวที่ฆ่าได้");
+  return head("ห้องรอ — คุณคือผู้ดำเนินเกม")+invite()+
+  '<div class="panel"><div class="label">ผู้เล่น ('+nPl+' คน)</div>'+(nPl?'<div class="chips">'+lb.players.slice(1).map(p=>'<span class="chip">'+(p.connected?"🟢":"⚪")+" "+esc(p.name)+'</span>').join("")+'</div>':'<div class="hint">รอเพื่อนเข้าร่วม… ส่งลิงก์หรือรหัสด้านบน (ผู้ดำเนินเกมไม่นับเป็นผู้เล่น)</div>')+'</div>'+
+  '<div class="panel"><div class="row between"><h3>เลือกไพ่ '+tot+'/'+nPl+'</h3><button class="btn" data-a="auto" '+(nPl<4?"disabled":"")+'>🎲 สุ่มให้สมดุล</button></div>'+balance(c)+(warns.length?'<div class="warnbox">'+warns.map(esc).join("<br>")+'</div>':"")+
+  '<div class="hint">จำนวนไพ่ต้องเท่ากับจำนวนผู้เล่น ตัวเลข + คือเข้าข้างฝ่ายมนุษย์ ตัวเลข − คือเข้าข้างหมาป่า ผลรวมใกล้ 0 คือสมดุล</div></div>'+
+  '<div class="panel">'+grp("v","ฝ่ายชาวบ้าน (+)")+grp("n","ฝ่ายชาวบ้านที่มีจุดอ่อน (0 / −)")+grp("w","ฝ่ายมนุษย์หมาป่าและฝ่ายอื่น")+'</div>'+
+  '<div class="panel"><div class="label">ตั้งค่า</div><label class="row"><input type="checkbox" data-a="rev" '+(st.reveal?"checked":"")+'> เปิดเผยบทบาทเมื่อผู้เล่นตาย</label>'+
+  sel("intro","เวลาแนะนำตัวต่อคน (วินาที, 0 = ข้าม)",[0,20,30,45,60],st.intro)+sel("day","เวลาถกเถียงกลางวัน (นาที)",[3,5,8,10,15],st.day)+'</div>'+
+  '<button class="btn primary block" data-a="start" '+(nPl<4||tot!==nPl?"disabled":"")+'>เริ่มเกม ('+nPl+' ผู้เล่น)</button><button class="btn ghost block" data-a="leave">ปิดห้อง</button>';
+}
+function sel(k,lab,opts,cur){ return '<label class="row between selrow"><span>'+lab+'</span><select data-a="set" data-k="'+k+'">'+opts.map(o=>'<option value="'+o+'"'+(o===cur?" selected":"")+'>'+o+'</option>').join("")+'</select></label>'; }
+function head(t){ return '<div class="brand"><div class="mark">🐺 '+esc(t)+'</div></div>'; }
+function invite(){ const url=location.origin+location.pathname+"?room="+O.code; return '<div class="panel invite"><div class="label">รหัสห้อง</div><div class="roomcode">'+esc(O.code)+'</div><div class="row"><button class="btn" data-a="copy" data-v="'+esc(url)+'">คัดลอกลิงก์เชิญ</button></div></div>'; }
+function plLobby(){
+  const lb=O.lobby, st=lb.settings, c=st.counts, tot=deckSum(c).n;
+  return head("ห้องรอ")+invite()+'<div class="panel"><div class="label">ผู้เล่นในห้อง</div><div class="chips">'+lb.players.map((p,i)=>'<span class="chip">'+(i===0?"🎙️ ":p.connected?"🟢 ":"⚪ ")+esc(p.name)+(i===0?" (ผู้ดำเนินเกม)":"")+(i===O.me?" ← คุณ":"")+'</span>').join("")+'</div><div class="hint">รอผู้ดำเนินเกมเลือกไพ่และเริ่มเกม</div></div>'+
+   '<div class="panel"><div class="label">ไพ่ในเกมนี้ ('+tot+' ใบ)</div>'+balance(c)+'<div class="chips">'+Object.keys(c).map(k=>'<span class="chip">'+RM[k].e+' '+esc(RM[k].th)+(c[k]>1?" ×"+c[k]:"")+' '+sg(RM[k].v)+'</span>').join("")+'</div></div><button class="btn ghost block" data-a="leave">ออกจากห้อง</button>';
+}
+
+/* ---------- moderator ---------- */
+function vMod(v){
+  const m=v.mod; let h=head("ผู้ดำเนินเกม"), body="";
+  const phaseName=v.phase==="deal"?"แจกไพ่":v.phase==="intro"||v.phase==="introdone"?"แนะนำตัว":v.phase==="over"?"จบเกม":v.g==="night"?"คืนที่ "+v.night:v.g==="day"?"วันที่ "+v.dayNo:v.g==="vote"?"โหวต":v.g==="voteres"?"ผลโหวต":v.g==="hunter"?"นายพรานยิง":"";
+  h+='<div class="stage">'+phaseName+' <span class="hint">· ห้อง '+esc(O.code)+'</span></div>';
+  const ctl=(c,l,cls)=>'<button class="btn '+(cls||"primary")+' block" data-a="cmd" data-c="'+c+'">'+l+'</button>';
+  if(v.phase==="deal"){ body+='<div class="panel"><h3>ผู้เล่นดูไพ่ ('+v.readyN+'/'+v.readyTot+')</h3><div class="hint">รอทุกคนกด “รับทราบ” แล้วค่อยเริ่ม (คุณเริ่มก่อนได้)</div>'+ctl("intro",v.introSecs>0?"เริ่มช่วงแนะนำตัว":"เริ่มคืนแรก")+'</div>'; }
+  else if(v.phase==="intro"){ const w=v.players[v.introWho]; body+='<div class="panel center"><div class="label">ตาแนะนำตัว ('+(v.introPos+1)+'/'+v.introTotal+')</div><div class="who">'+esc(w?w.name:"")+'</div>'+timer(v.introEnd)+ctl("introNext","คนถัดไป")+ctl("night","ข้ามไปคืนแรก","ghost")+'</div>'; }
+  else if(v.phase==="introdone"){ body+='<div class="panel center"><h3>แนะนำตัวครบแล้ว</h3>'+ctl("night","เริ่มคืนแรก 🌙")+'</div>'; }
+  else if(v.g==="night"){ body+='<div class="panel"><h3>กลางคืน — ทุกคนปิดไมค์</h3><div class="hint">รอ: '+(m.waiting.length?m.waiting.map(s=>esc(v.players[s].name)+" ("+m.roles[s].e+")").join(", "):(m.wolfSplit?"หมาป่ายังเลือกเหยื่อไม่ตรงกัน":"ครบแล้ว กำลังขึ้นเช้า…"))+'</div>'+ctl("endnight","บังคับจบคืน ☀️","btn")+(m.wolfChat.length?'<div class="label">แชตหมาป่า</div>'+m.wolfChat.map(c=>'<div class="hint">'+esc(c.n)+': '+esc(c.s)+'</div>').join(""):"")+'</div>'; }
+  else if(v.g==="day"){ body+=dawnBox(v)+'<div class="panel center"><div class="label">เวลาถกเถียง</div>'+timer(v.dayEnd)+ctl("vote","เริ่มโหวต 🗳️")+'</div>'; }
+  else if(v.g==="vote"){ body+=(v.voteIntro.length?'<div class="panel">'+v.voteIntro.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':"")+'<div class="panel center"><h3>กำลังโหวต ('+v.votedN+'/'+v.voteTot+')</h3>'+ctl("endvote","สรุปผลโหวตเลย")+'</div>'; }
+  else if(v.g==="voteres"){ body+=voteBox(v)+ctl("night","ต่อไป"+(v.votesLeft>0?" (โหวตอีกครั้ง)":" — เริ่มคืนถัดไป 🌙")); }
+  else if(v.g==="hunter"){ body+='<div class="panel center"><h3>รอ '+esc(v.hunterWho||"")+' (นายพราน) เลือกเป้าหมาย</h3>'+ctl("shoot","ข้าม: ยิงขึ้นฟ้าแทน","ghost")+'</div>'; }
+  else if(v.phase==="over"){ body+=overBox(v)+ctl("again","กลับไปห้องรอ (เล่นใหม่)"); }
+  body+='<div class="panel"><div class="label">ผู้เล่นทั้งหมด (คุณเห็นไพ่ทุกใบ)</div>'+roster(v,true)+'</div>';
+  body+='<details class="panel rules"><summary>บันทึกเกม (เฉพาะผู้ดำเนินเกม)</summary><div class="log">'+m.log.map(x=>'<div>'+esc(x)+'</div>').join("")+'</div></details><button class="btn ghost block" data-a="leave">ปิดห้อง</button>';
+  return h+body;
+}
+function dawnBox(v){ return '<div class="panel dawn"><h3>☀️ เช้าวันที่ '+v.dayNo+'</h3>'+v.dawn.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>'; }
+function voteBox(v){ const r=v.voteres; return '<div class="panel dawn"><h3>🗳️ ผลโหวต</h3><p class="big">'+esc(r.text)+'</p>'+(r.extra||[]).map(x=>'<p>'+esc(x)+'</p>').join("")+'<details><summary>ดูว่าใครโหวตใคร</summary>'+r.lines.map(x=>'<div class="hint">'+esc(x)+'</div>').join("")+'</details></div>'; }
+function overBox(v){ const o=v.over; return '<div class="panel dawn"><div class="verdict '+(o.w==="village"?"win":"")+'">'+esc(o.text)+'</div>'+(o.extra||[]).map(x=>'<p>'+esc(x)+'</p>').join("")+'<table class="roles">'+o.roles.map((r,i)=>'<tr class="'+(o.win.includes(i)?"won":"")+'"><td>'+r.e+'</td><td class="nm">'+esc(r.n)+'</td><td>'+esc(r.r)+(r.alive?"":" ✝")+'</td><td>'+(o.win.includes(i)?"🏆":"")+'</td></tr>').join("")+'</table></div>'; }
+
+/* ---------- player ---------- */
+function vPlayer(v){
+  const pv=v.priv; let h=head("มนุษย์หมาป่า"), body="";
+  if(v.phase==="deal"){
+    return h+'<div class="stage">ไพ่ของคุณ</div>'+cardBlock(pv,true)+(pv.info.length?'<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':"")+
+     (pv.ready?'<div class="panel center"><p>รับทราบแล้ว รอผู้ดำเนินเกม… ('+v.readyN+'/'+v.readyTot+')</p></div>':'<button class="btn primary block" data-a="ready">รับทราบ — ซ่อนไพ่</button>')+'<div class="hint center">อย่าให้ใครเห็นหน้าจอของคุณ</div>';
+  }
+  const peek='<button class="peek" data-a="peek"><span>'+pv.e+' '+esc(pv.rn)+' '+valChip({v:pv.v})+'</span><span class="hint">'+(O.ui.peek?"ซ่อน":"แตะเพื่อดูไพ่")+'</span></button>'+(O.ui.peek?cardBlock(pv):"");
+  const stage=!pv.alive?(pv.ghost?"👻 คุณเป็นผู้ชม (พรายกระซิบ)":"💀 คุณตายแล้ว — ห้ามพูดหรือบอกใบ้"):"";
+  if(v.phase==="intro"){ const w=v.players[v.introWho], me=v.introWho===v.me; body+='<div class="panel center"><div class="label">ช่วงแนะนำตัว ('+(v.introPos+1)+'/'+v.introTotal+')</div><div class="who">'+(me?"ถึงตาคุณ!":esc(w?w.name:""))+'</div><div class="hint">'+(me?"แนะนำตัวในสายได้เลย":"ฟังการแนะนำตัวในสาย")+'</div>'+timer(v.introEnd)+'</div>'; }
+  else if(v.phase==="introdone"){ body+='<div class="panel center"><p>แนะนำตัวครบแล้ว รอผู้ดำเนินเกมเริ่มคืนแรก</p></div>'; }
+  else if(v.phase==="over"){ body+=overBox(v)+'<div class="hint center">รอผู้ดำเนินเกมเริ่มรอบใหม่</div>'; }
+  else if(v.g==="night") body+=nightPanel(v);
+  else if(v.g==="day") body+=dawnBox(v)+(v.dayEnd?'<div class="panel center"><div class="label">เวลาถกเถียง</div>'+timer(v.dayEnd)+'</div>':"")+(pv.alive?'<div class="hint center">คุยกันในสาย แล้วรอผู้ดำเนินเกมเริ่มโหวต</div>':"");
+  else if(v.g==="vote") body+=(v.voteIntro.length?'<div class="panel">'+v.voteIntro.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':"")+votePanel(v);
+  else if(v.g==="voteres") body+=voteBox(v)+'<div class="hint center">รอผู้ดำเนินเกม…</div>';
+  else if(v.g==="hunter") body+=hunterPanel(v);
+  if(pv.msgs.length&&v.phase!=="over") body+='<div class="panel"><div class="label">ข้อมูลลับของคุณ</div>'+pv.msgs.map(m=>'<p>'+(m.n?'<span class="hint">คืน '+m.n+': </span>':"")+esc(m.text)+'</p>').join("")+'</div>';
+  if(pv.info.length&&v.phase!=="over") body+='<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>';
+  if(v.ghostChars&&v.ghostChars.length) body+='<div class="panel"><div class="label">ข้อความจากยมโลก</div><div class="ghost">'+v.ghostChars.map(esc).join(" ")+'</div></div>';
+  return h+(stage?'<div class="stage">'+stage+'</div>':"")+peek+body+'<div class="panel"><div class="label">ผู้เล่น</div>'+roster(v,false)+'</div><button class="btn ghost block" data-a="leave">ออกจากห้อง</button>';
+}
+function pickChips(v,pool,sel,wolfPicks){
+  return '<div class="chips">'+pool.map(j=>{ const on=sel.includes(j); const who=(wolfPicks||[]).filter(w=>w.pick&&w.pick.includes(v.players[j].name)).map(w=>w.n);
+    return '<button class="chip pick" aria-pressed="'+on+'" data-a="tog" data-p="'+j+'">'+esc(v.players[j].name)+(who.length?' <small>('+who.map(esc).join(",")+')</small>':"")+'</button>'; }).join("")+'</div>';
+}
+function nightPanel(v){
+  const pv=v.priv, p=pv.prompt;
+  if(!p) return '<div class="panel center"><div class="moon">🌙</div><h3>กลางคืน</h3><p>หลับตา วางมือถือ… รอเช้า</p></div>';
+  if(p.k==="info") return '<div class="panel center"><h3>'+esc(p.title)+'</h3><p>'+esc(p.hint)+'</p></div>';
+  const sel=O.ui.sel;
+  let b='<div class="panel"><h3>'+esc(p.title)+'</h3><div class="hint">'+esc(p.hint)+'</div>';
+  if(p.k==="pick"||p.k==="wolf"){
+    b+=pickChips(v,p.pool,sel,p.k==="wolf"?v.wolves:null);
+    b+='<button class="btn primary block" data-a="submit" '+(sel.length!==p.n?"disabled":"")+'>ยืนยัน'+(p.n>1?" ("+sel.length+"/"+p.n+")":"")+'</button>'+(p.opt?'<button class="btn block" data-a="skip">ข้าม (เก็บไว้ก่อน)</button>':"");
+    if(p.done) b+='<div class="okbox">✅ ส่งคำตอบแล้ว (เปลี่ยนได้จนกว่าจะขึ้นเช้า)</div>';
+    if(p.k==="wolf"){ b+='<div class="label">หมาป่า</div>'+v.wolves.map(w=>'<div class="hint">'+esc(w.n)+': '+(w.pick?esc(w.pick.join(", ")):"ยังไม่เลือก")+'</div>').join("")+
+      '<div class="label">แชตหมาป่า (เห็นเฉพาะหมาป่า)</div><div class="chat">'+v.chat.map(c=>'<div><b>'+esc(c.n)+'</b> '+esc(c.s)+'</div>').join("")+'</div><div class="row"><input id="chat" maxlength="40" placeholder="พิมพ์สั้นๆ"><button class="btn" data-a="chat">ส่ง</button></div>'; }
+  } else if(p.k==="witch"){
+    b+=(p.heal?'<div class="label">ยาช่วย (เลือกคนที่จะปกป้อง)</div>'+hx(v,p.pool,O.ui.h,"h"):"")+(p.kill?'<div class="label">ยาพิษ (เลือกคนที่จะกำจัด)</div>'+hx(v,p.pool,O.ui.x,"x"):"")+'<button class="btn primary block" data-a="submit">ยืนยัน (ไม่เลือก = ไม่ใช้)</button>'+(p.done?'<div class="okbox">✅ ส่งแล้ว</div>':"");
+  } else if(p.k==="yn"){ b+='<div class="row"><button class="btn primary" data-a="yn" data-y="1">ใช้พลัง</button><button class="btn" data-a="yn" data-y="0">ยังไม่ใช้</button></div>'+(p.done?'<div class="okbox">✅ ส่งแล้ว</div>':""); }
+  else if(p.k==="text"){ b+='<input id="gtxt" maxlength="14" placeholder="เช่น ระวังคนใกล้ตัว" value="'+esc(O.ui.txt)+'"><div class="hint">ใช้ได้ 10 ตัวอักษร (ไม่นับวรรค)</div><button class="btn primary block" data-a="gsend">ส่งข้อความ</button>'+(p.done?'<div class="okbox">✅ ส่งแล้ว</div>':""); }
+  return b+'</div>';
+}
+function hx(v,pool,cur,key){ return '<div class="chips">'+pool.map(j=>'<button class="chip pick" aria-pressed="'+(cur===j)+'" data-a="hx" data-key="'+key+'" data-p="'+j+'">'+esc(v.players[j].name)+'</button>').join("")+'</div>'; }
+function votePanel(v){
+  const p=v.priv.prompt; if(!p) return '<div class="panel center"><p>'+(v.priv.alive?"คุณไม่ได้อยู่ในการโหวตรอบนี้":"ผู้ตายโหวตไม่ได้")+' ('+v.votedN+'/'+v.voteTot+')</p></div>';
+  if(p.k==="auto") return '<div class="panel center"><h3>'+esc(p.title)+'</h3><p>'+esc(p.hint)+'</p></div>';
+  return '<div class="panel"><h3>โหวตกำจัด ('+v.votedN+'/'+v.voteTot+')'+(v.votesLeft>1?" — รอบที่ 1 จาก 2":"")+'</h3><div class="chips">'+p.pool.map(j=>'<button class="chip pick" aria-pressed="'+(p.mine===j)+'" data-a="vote" data-p="'+j+'">'+esc(v.players[j].name)+'</button>').join("")+'<button class="chip pick" aria-pressed="'+(p.mine==="none")+'" data-a="vote" data-p="none">ไม่กำจัดใคร</button></div>'+(p.done?'<div class="okbox">✅ โหวตแล้ว (เปลี่ยนได้จนกว่าผู้ดำเนินเกมสรุป)</div>':"")+'</div>';
+}
+function hunterPanel(v){ const p=v.priv.prompt;
+  if(!p) return '<div class="panel center"><h3>🎯 รอ '+esc(v.hunterWho||"")+' (นายพราน) เลือกเป้าหมาย</h3></div>';
+  return '<div class="panel"><h3>'+esc(p.title)+'</h3><div class="hint">'+esc(p.hint)+'</div><div class="chips">'+p.pool.map(j=>'<button class="chip pick" data-a="shoot" data-p="'+j+'">'+esc(v.players[j].name)+'</button>').join("")+'</div><button class="btn block" data-a="shoot">ยิงขึ้นฟ้า</button></div>'; }
+
+/* ---------- render + events ---------- */
+function render(){
+  const act=document.activeElement; if(act&&act.id==="gtxt"){ O.ui.txt=act.value; return; } if(act&&act.id==="chat") return;
+  let html;
+  if(O.phase==="entry"||O.phase==="connecting") html=vEntry();
+  else if(O.view){ html=O.view.mod?vMod(O.view):vPlayer(O.view); }
+  else if(O.lobby) html=O.role==="host"?modLobby():plLobby();
+  else html='<div class="panel center">กำลังเชื่อมต่อ…</div>';
+  const y=window.scrollY; $app.innerHTML=html; window.scrollTo(0,y);
+}
+$app.addEventListener("input",e=>{ const t=e.target; if(t.id==="nm") O.name=t.value; else if(t.id==="cd"){ O.joinCode=t.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4); t.value=O.joinCode; } else if(t.id==="gtxt") O.ui.txt=t.value; });
+$app.addEventListener("change",e=>{ const t=e.target.closest("[data-a]"); if(!t) return;
+  if(t.dataset.a==="rev") toHost({t:"cmd",c:"settings",reveal:t.checked});
+  if(t.dataset.a==="set") toHost({t:"cmd",c:"settings",[t.dataset.k]:+t.value}); });
+$app.addEventListener("click",e=>{
+  const b=e.target.closest("[data-a]"); if(!b||b.tagName==="SELECT"||b.type==="checkbox") return; const a=b.dataset.a, v=O.view, ui=O.ui;
+  try{ switch(a){
+    case "create": onCreate(); break; case "join": onJoin(); break; case "leave": leave(); break;
+    case "copy": { const u=b.dataset.v; (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast("คัดลอกลิงก์แล้ว"),()=>toast("คัดลอกไม่ได้ ส่งรหัสห้อง "+O.code+" แทน")); break; }
+    case "cnt": { const c=Object.assign({},O.lobby.settings.counts), k=b.dataset.k; c[k]=Math.max(0,Math.min(RM[k].max,(c[k]||0)+(+b.dataset.d))); if(!c[k]) delete c[k]; O.lobby.settings.counts=c; toHost({t:"cmd",c:"settings",counts:c}); render(); break; }
+    case "auto": toHost({t:"cmd",c:"auto"}); break; case "start": toHost({t:"cmd",c:"start"}); break;
+    case "cmd": toHost({t:"cmd",c:b.dataset.c}); break;
+    case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
+    case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } render(); break; }
+    case "submit": { const pr=v.priv.prompt; if(pr.k==="witch") toHost({t:"act",a:{h:ui.h,x:ui.x}}); else toHost({t:"act",a:{t:ui.sel}}); break; }
+    case "skip": toHost({t:"act",a:{t:[]}}); break;
+    case "hx": { const k=b.dataset.key, p=+b.dataset.p; ui[k]=ui[k]===p?null:p; render(); break; }
+    case "yn": toHost({t:"act",a:{y:b.dataset.y==="1"}}); break;
+    case "gsend": { const el=document.getElementById("gtxt"); toHost({t:"act",a:{s:el?el.value:ui.txt}}); break; }
+    case "chat": { const el=document.getElementById("chat"); if(el&&el.value.trim()){ toHost({t:"chat",s:el.value}); el.value=""; } break; }
+    case "vote": toHost({t:"vote",v:b.dataset.p==="none"?"none":+b.dataset.p}); break;
+    case "shoot": { const p=b.dataset.p; if(O.role==="host") toHost({t:"cmd",c:"shoot",v:p==null?null:+p}); else toHost({t:"shoot",v:p==null?null:+p}); break; }
+  } }catch(err){ console.error(err); }
+});
+render();
 </script></body></html>
