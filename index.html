@@ -71,6 +71,11 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:600;m
 .ri.sm{width:26px;height:26px;border-radius:50%}.ri.sm i{font-size:15px}
 .rinfo{align-items:center}
 .sndbtn{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:22px;line-height:1;z-index:40;box-shadow:0 4px 14px #0005}
+.saybtn{right:calc(max(14px,env(safe-area-inset-right,0px)) + 58px)}
+#dvid{position:fixed;inset:0;z-index:90;background:#000;opacity:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+#dvid.on{opacity:1;pointer-events:auto}
+#dvid video{width:100%;height:100%;object-fit:contain;background:#000}
+.dvskip{position:absolute;left:0;right:0;bottom:max(16px,env(safe-area-inset-bottom,0px));text-align:center;color:#fff9;font-size:13px}
 .zoomov{position:fixed;inset:0;z-index:50;background:#000c;display:grid;place-items:center;padding:20px;cursor:zoom-out}
 .zoomov img{max-width:min(92vw,420px);max-height:86vh;border-radius:16px;box-shadow:0 10px 40px #000a}
 .rcard .cardimg{display:none}.rcard.hasimg{padding:0;background:none;border:0;box-shadow:none;max-width:340px;margin-inline:auto}.rcard.hasimg>*:not(.cardimg):not(.warnbox){display:none}.rcard.hasimg .cardimg{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 8px 28px #0008}
@@ -196,7 +201,7 @@ function nightSpec(G,i){
     case "vampire": return pk(1,oth,"เลือกเหยื่อ 1 คน","เขาจะตายตอนเริ่มโหวตของวันพรุ่งนี้");
   }
   if (p.f.cult && p.f.cultLeader && r!=="cult") return pk(1,oth.filter(j=>!G.p[j].f.cult),"ชักจูงผู้เล่น 1 คนเข้าลัทธิ","เขาจะไม่รู้ตัว");
-  if (isKiller(p) && n>=1 && !G.wolvesSick){
+  if (isKiller(p) && n>=2 && !G.wolvesSick){
     const pool = all.filter(j=>!G.pack.has(j));
     const nn = Math.min(G.killCount,pool.length);
     return nn ? {k:"wolf",n:nn,pool,title:G.killCount===2?"เลือกเหยื่อ 2 คน":"เลือกเหยื่อ",hint:"หมาป่าส่วนใหญ่ต้องเลือกตรงกันจึงจะกำจัดได้"} : null;
@@ -276,15 +281,15 @@ function endNight(G){
   });
   /* kills */
   if (G.bruteQ!=null){ const b=G.bruteQ; G.bruteQ=null; attempt(G,b,"หนุ่มถึกถูกหมาป่ากำจัด (เลื่อนมาคืนนี้)"); }
-  const wt = (N>=1 && !G.wolvesSick) ? wolfTarget(G) : null;
+  const wt = (N>=2 && !G.wolvesSick) ? wolfTarget(G) : null;
   if (wt) wt.forEach(t=>{ const q=P[t]; if(!q.alive) return; L(G,"หมาป่าเลือก "+nm(G,t));
     if (q.role==="vampire"){ L(G,"แวมไพร์ไม่ตายจากหมาป่า"); return; }
     if (G.protect.has(t)){ L(G,nm(G,t)+" ถูกคุ้มครองจากหมาป่า"); return; }
     if (q.role==="brute"){ G.bruteQ=t; L(G,"หนุ่มถึกรอดคืนนี้ แต่จะตายคืนถัดไป"); return; }
     if (q.role==="cursed" && !q.f.converted){ q.f.converted=true; G.pack.add(t); note(G,t,"คุณถูกหมาป่ากัด! ตอนนี้คุณเป็นมนุษย์หมาป่าแล้ว"); L(G,nm(G,t)+" (ผู้ต้องคำสาป) กลายเป็นหมาป่า"); return; }
     const died=kill(G,t,"ถูกมนุษย์หมาป่า"); if(died && q.role==="diseased"){ G.sickNext=true; L(G,"หมาป่าติดโรค คืนถัดไปกำจัดไม่ได้"); } });
-  else if (N>=1 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
-  else if (N>=1) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
+  else if (N>=2 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
+  else if (N>=2) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="witch" && a && a.x!=null){ p.f.killUsed=true; L(G,"แม่มดวางยาพิษ "+nm(G,a.x)); attempt(G,a.x,"ยาพิษแม่มด"); } });
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="vampire"&&p.alive&&a&&a.t&&a.t.length){ G.vampMark=a.t[0]; L(G,"แวมไพร์เลือก "+nm(G,a.t[0])); } });
   /* dawn */
@@ -475,7 +480,7 @@ async function tryHost(n){
   try{ dbInit(); const code=genCode(), rf=db.ref("rooms/"+code);
     const ex=await Promise.race([rf.child("hp").get(),new Promise((_,r)=>setTimeout(()=>r(new Error("timeout")),15000))]);
     if(ex.exists()) return tryHost(n+1);
-    hostBoot(code,{ players:[{pid:"host",name:O.name,connected:true}], phase:"lobby", settings:{counts:{werewolf:1,seer:1,villager:2},reveal:true,intro:30,day:5}, G:null, ready:new Set(), introEnd:0, dayEnd:0, wolfChat:[] });
+    hostBoot(code,{ players:[{pid:"host",name:O.name,connected:true}], phase:"lobby", settings:{counts:{werewolf:1,seer:1,villager:2},reveal:true,intro:30,day:5,auto:!!O.autoNext}, G:null, ready:new Set(), introEnd:0, dayEnd:0, wolfChat:[] });
   }catch(e){ onFail(errText(e)); }
 }
 function hostBoot(code,h){
@@ -531,13 +536,14 @@ async function onJoin(){
 }
 
 /* ----- seat helpers: net index = seat + 1 ----- */
-const seatOf=i=>i-1, netOf=s=>s+1;
+const AUTO=()=>!!(H&&H.settings&&H.settings.auto), OFF=()=>AUTO()?0:1;
+const seatOf=i=>i-OFF(), netOf=s=>s+OFF();
 
 /* ----- host commands ----- */
 function hostRecv(i,d){
   if(!H) return; const G=H.G, ph=H.phase;
-  if(d.t==="cmd" && i===0) return modCmd(d);
-  if(i===0) return;  // moderator has no seat
+  if(d.t==="cmd" && i===0){ if(!AUTO()) return modCmd(d); if(["settings","auto","start","again"].includes(d.c)) return modCmd(d); return; }
+  if(i===0&&!AUTO()) return;  // human moderator has no seat (in auto mode the host plays seat 0)
   const s=seatOf(i);
   if(d.t==="ready" && ph==="deal"){ H.ready.add(s); pushAll(); }
   else if(d.t==="act" && ph==="night" && G.phase==="night"){ if(submitAct(G,s,d.a)){ H.dirty=1; pushAll(); if(nightReady(G)) { H.nightAuto=Date.now()+1500; } else H.nightAuto=0; } }
@@ -549,8 +555,8 @@ function modCmd(d){
   const G=H.G;
   switch(d.c){
     case "settings": if(H.phase==="lobby"){ const st=H.settings; if(d.counts){ const c={}; Object.keys(d.counts).forEach(k=>{ if(RM[k]){ const n=Math.max(0,Math.min(RM[k].max,+d.counts[k]|0)); if(n) c[k]=n; } }); st.counts=c; }
-        if(d.reveal!=null) st.reveal=!!d.reveal; if([0,20,30,45,60].includes(+d.intro)) st.intro=+d.intro; if([3,5,8,10,15].includes(+d.day)) st.day=+d.day; pushAll(); } break;
-    case "auto": if(H.phase==="lobby"){ const n=H.players.length-1; if(n>=4){ H.settings.counts=autoDeck(n); pushAll(); } } break;
+        if(d.reveal!=null) st.reveal=!!d.reveal; if(d.auto!=null) st.auto=!!d.auto; if([0,20,30,45,60].includes(+d.intro)) st.intro=+d.intro; if([3,5,8,10,15].includes(+d.day)) st.day=+d.day; pushAll(); } break;
+    case "auto": if(H.phase==="lobby"){ const n=H.players.length-OFF(); if(n>=4){ H.settings.counts=autoDeck(n); pushAll(); } } break;
     case "start": hostStart(); break;
     case "intro": if(H.phase==="deal"&&G.phase==="deal"){ if(H.settings.intro>0){ startIntro(G); H.phase="intro"; H.introEnd=Date.now()+H.settings.intro*1000; } else { startNight(G); H.phase="night"; } pushAll(); } break;
     case "introNext": if(H.phase==="intro"){ if(introNext(G)) H.introEnd=Date.now()+H.settings.intro*1000; else { H.phase="introdone"; } pushAll(); } break;
@@ -563,7 +569,7 @@ function modCmd(d){
     case "nclear": H.notes={}; pushAll(); break;
     case "fkill": if(G&&["night","day","vote","voteres","hunter"].includes(G.phase)){ const p=+d.p; if(G.p[p]&&G.p[p].alive){ G.deaths=G.deaths||[]; const before=G.pub.length; kill(G,p,"ผู้ดำเนินเกมสั่ง",true); modPub(G,G.pub.slice(before)); if(G.phase!=="hunter") settle(G,G.phase); pushAll(); } } break;
     case "frev": if(G&&["night","day","vote","voteres","hunter"].includes(G.phase)){ const p=+d.p, q=G.p[p]; if(q&&!q.alive){ q.alive=true; q.ghost=false; delete q.f.cause; G.deaths=(G.deaths||[]).filter(x=>x!==p); G.hunterQ=G.hunterQ.filter(x=>x!==p); const m="✨ "+nm(G,p)+" ได้รับการชุบชีวิตโดยผู้ดำเนินเกม"; L(G,m); modPub(G,[m]); if(G.phase==="hunter"&&!G.hunterQ.length) settle(G,G.after); pushAll(); } } break;
-    case "again": if(H.phase==="over"||H.phase==="intro"||H.phase==="deal"||G){ H.G=null; H.notes={}; H.phase="lobby"; H.players=H.players.filter((p,k)=>k===0||p.connected); pushAll(); } break;
+    case "again": if(H.phase==="over"||H.phase==="intro"||H.phase==="deal"||G){ H.G=null; H.notes={}; H.phase="lobby"; H.players=H.players.filter((p,k)=>k===0||p.connected); H.akey=""; pushAll(); } break;
   }
 }
 function modPub(G,a){ if(!a.length) return; if(G.phase==="day") G.dawn=(G.dawn||[]).concat(a); else if(G.phase==="vote") G.voteIntro=(G.voteIntro||[]).concat(a); else if(G.phase==="voteres"&&G.voteres) G.voteres.extra=(G.voteres.extra||[]).concat(a); else if(G.phase==="hunter"){ if(G.after==="day") G.dawn=(G.dawn||[]).concat(a); else if(G.after==="vote") G.voteIntro=(G.voteIntro||[]).concat(a); else if(G.after==="voteres"&&G.voteres) G.voteres.extra=(G.voteres.extra||[]).concat(a); } }
@@ -571,11 +577,34 @@ function afterPhase(){ const G=H.G; if(G.phase==="day") H.dayEnd=Date.now()+H.se
 function hostStart(){
   if(H.phase!=="lobby") return;
   H.players=H.players.filter((p,i)=>i===0||p.connected);
-  const n=H.players.length-1, c=H.settings.counts, ids=[]; Object.keys(c).forEach(k=>{ for(let j=0;j<c[k];j++) ids.push(k); });
-  if(n<4){ toast("ต้องมีผู้เล่นอย่างน้อย 4 คน (ไม่นับผู้ดำเนินเกม)"); return; }
+  const n=H.players.length-OFF(), c=H.settings.counts, ids=[]; Object.keys(c).forEach(k=>{ for(let j=0;j<c[k];j++) ids.push(k); });
+  if(n<4){ toast(AUTO()?"ต้องมีผู้เล่นอย่างน้อย 4 คน":"ต้องมีผู้เล่นอย่างน้อย 4 คน (ไม่นับผู้ดำเนินเกม)"); return; }
   if(ids.length!==n){ toast("จำนวนไพ่ ("+ids.length+") ต้องเท่ากับจำนวนผู้เล่น ("+n+")"); return; }
-  H.G=newGame(H.players.slice(1).map(p=>p.name),ids,{reveal:H.settings.reveal}); H.phase="deal"; H.notes={}; H.ready=new Set(); H.wolfChat=[]; pushAll();
+  H.G=newGame(H.players.slice(OFF()).map(p=>p.name),ids,{reveal:H.settings.reveal}); H.phase="deal"; H.notes={}; H.ready=new Set(); H.wolfChat=[]; H.akey=""; H.autoEnd=0; pushAll();
 }
+
+/* ===== โหมดอัตโนมัติ: เครื่องเจ้าของห้องเดินเกมให้เอง (เวลาตายตัว) ===== */
+const AE={deal:90,introdone:3,night:60,vote:60,voteres:10,hunter:30};
+function autoTick(){
+  if(!H||O.role!=="host"||!AUTO()||!H.G||H.phase==="lobby"||H.phase==="over") return;
+  const G=H.G, now=Date.now(); if(G.phase==="over") return;
+  const st=(H.phase==="deal"||H.phase==="intro"||H.phase==="introdone")?H.phase:G.phase;
+  const key=st+"|"+G.night+"|"+G.dayNo+"|"+G.votesLeft+"|"+G.introPos+"|"+(G.hunterQ.length?G.hunterQ[0]:"");
+  if(H.akey!==key){ H.akey=key; H.allAt=0; H.autoEnd=AE[st]?now+AE[st]*1000:0;
+    if(st==="day"&&H.dayNoSet!==G.dayNo){ H.dayNoSet=G.dayNo; H.dayEnd=now+H.settings.day*60000; }
+    pushAll(); return; }
+  if(st==="deal"){ if(H.ready.size>=G.N||now>H.autoEnd) modCmd({c:"intro"}); }
+  else if(st==="intro"){ if(now>H.introEnd) modCmd({c:"introNext"}); }
+  else if(st==="introdone"){ if(now>H.autoEnd) modCmd({c:"night"}); }
+  else if(st==="night"){ if(now>H.autoEnd) modCmd({c:"endnight"}); }
+  else if(st==="day"){ if(now>H.dayEnd) modCmd({c:"vote"}); }
+  else if(st==="vote"){ const tot=eligibleVoters(G).filter(j=>!["idiot","pacifist"].includes(G.p[j].role)).length;
+    if(Object.keys(G.votes).length>=tot){ if(!H.allAt) H.allAt=now; }
+    if((H.allAt&&now-H.allAt>1500)||now>H.autoEnd) modCmd({c:"endvote"}); }
+  else if(st==="voteres"){ if(now>H.autoEnd) modCmd({c:"night"}); }
+  else if(st==="hunter"){ if(now>H.autoEnd) modCmd({c:"shoot",v:null}); }
+}
+setInterval(()=>{ try{ autoTick(); }catch(e){ console.error(e); } },500);
 
 /* ----- views ----- */
 function nightReady(G){ if(!nightDone(G)) return false; const w=G.p.some((p,i)=>{ const sp=isKiller(p)&&nightSpec(G,i); return sp&&sp.k==="wolf"; }); return !w||wolfTarget(G)!==null; }
@@ -588,7 +617,7 @@ function pushAll(){
     hostSend(i,{t:"lobby",me:i,players:lobby.players,settings:H.settings,hostPhase:H.phase});
     if(H.G) hostSend(i,{t:"view",v:viewFor(i)}); }
 }
-function pubPlayers(G,rev){ return G.p.map((p,i)=>({ name:p.name, alive:p.alive, ghost:p.ghost, role:(!p.alive&&(G.reveal||G.over||p.ghost))?RM[p.role].th:null, e:(!p.alive&&(G.reveal||G.over||p.ghost))?RM[p.role].e:null, hexed:G.hexed===i&&p.alive, muted:G.mute===i&&p.alive, conn:H.players[i+1]?H.players[i+1].connected:false })); }
+function pubPlayers(G,rev){ return G.p.map((p,i)=>({ name:p.name, alive:p.alive, ghost:p.ghost, role:(!p.alive&&(G.reveal||G.over||p.ghost))?RM[p.role].th:null, e:(!p.alive&&(G.reveal||G.over||p.ghost))?RM[p.role].e:null, hexed:G.hexed===i&&p.alive, muted:G.mute===i&&p.alive, conn:H.players[i+OFF()]?H.players[i+OFF()].connected:false })); }
 function infoLines(G,i){
   const p=G.p[i], L2=[], N=j=>G.p[j].name, tag=j=>N(j)+" ("+RM[G.p[j].role].th+(G.p[j].alive?"":" ✝")+")";
   if(isKiller(p)||p.role==="minion"){ const o=[...G.pack].filter(j=>j!==i&&G.p[j].role!=="sorceress"||true).filter(j=>j!==i); if(o.length) L2.push("🐺 พวกเดียวกัน: "+o.map(tag).join(", ")); }
@@ -610,7 +639,7 @@ function promptFor(G,s){
   return null;
 }
 function viewFor(i){
-  const G=H.G, mod=i===0, s=seatOf(i), base={ phase:H.phase, g:G.phase, night:G.night, dayNo:G.dayNo, reveal:G.reveal, wolfKill:!!G.wolfKill, players:pubPlayers(G),
+  const G=H.G, mod=i===0&&!AUTO(), s=seatOf(i), base={ auto:AUTO(), autoEnd:H.autoEnd||0, phase:H.phase, g:G.phase, night:G.night, dayNo:G.dayNo, reveal:G.reveal, wolfKill:!!G.wolfKill, players:pubPlayers(G),
     dawn:G.dawn, voteIntro:G.voteIntro||[], voteres:G.voteres, votesLeft:G.votesLeft, introEnd:H.introEnd, introPos:G.introPos, introWho:G.introOrder[G.introPos], introTotal:G.introOrder.length, introSecs:H.settings.intro, dayEnd:H.dayEnd, dayMins:H.settings.day,
     votedN:Object.keys(G.votes).length, voteTot:G.phase==="vote"?eligibleVoters(G).filter(j=>!["idiot","pacifist"].includes(G.p[j].role)).length:0,
     hunterWho:G.hunterQ.length?G.p[G.hunterQ[0]].name:null, readyN:H.ready.size, readyTot:G.N, ghostChars:G.ghostChars&&G.night>=1?G.ghostChars.slice(0,G.night):null };
@@ -629,13 +658,72 @@ function clientRecv(m){
   switch(m.t){
     case "joined": O.me=m.idx; O.code=m.code; O.phase="lobby"; O.myName=m.name||O.name; if(O.role==="client"){ try{ localStorage.setItem("ww-last",JSON.stringify({code:O.code,name:O.myName,t:Date.now()})); }catch(e){} } wl(); break;
     case "reject": onFail(m.reason==="started"?"เกมเริ่มไปแล้ว ถ้าคุณเคยอยู่ในห้องนี้ ให้ใส่ชื่อเดิมให้ตรงเป๊ะแล้วกดเข้าร่วม จะกลับเข้าเกมเดิมได้":"ห้องเต็มแล้ว"); return;
-    case "lobby": O.me=m.me; O.lobby=m; O.phase=O.phase==="entry"?"entry":"lobby"; if(m.hostPhase==="lobby"){ O.view=null; } break;
+    case "lobby": O.me=m.me; O.lobby=m; O.phase=O.phase==="entry"?"entry":"lobby"; if(m.hostPhase==="lobby"){ O.view=null; DV.seen=undefined; } break;
     case "view": O.view=m.v; break;
     case "closed": if(m.why!=="moved"){ try{ localStorage.removeItem("ww-last"); }catch(e){} } onFail(m.why==="moved"?"คุณเข้าห้องนี้ด้วยชื่อเดิมจากอีกหน้าหนึ่งแล้ว หน้านี้จึงถูกตัดการเชื่อมต่อ":"ผู้ดำเนินเกมปิดห้องแล้ว หรือการเชื่อมต่อขาด"); return;
   }
-  const v=O.view; if(v){ const key=(v.phase+"|"+v.night+"|"+v.g+"|"+v.votesLeft+"|"+(v.priv&&v.priv.prompt?v.priv.prompt.k:"")); if(key!==O.ui.key){ O.ui.key=key; O.ui.sel=[]; O.ui.h=null; O.ui.x=null; if(v.phase==="deal") O.ui.revealCard=!(v.priv&&v.priv.ready); } sfxFor(v); }
+  const v=O.view; if(v){ const key=(v.phase+"|"+v.night+"|"+v.g+"|"+v.votesLeft+"|"+(v.priv&&v.priv.prompt?v.priv.prompt.k:"")); if(key!==O.ui.key){ O.ui.key=key; O.ui.sel=[]; O.ui.h=null; O.ui.x=null; if(v.phase==="deal") O.ui.revealCard=!(v.priv&&v.priv.ready); } deathFor(v); narrate(v); sfxFor(v); }
   render();
 }
+/* ===== วิดีโอตอนมีคนตาย: videos/death.mp4 (หรือ .webm/.mov) ไฟล์เดียวใช้ทุกการตาย เล่นบนมือถือทุกคนเมื่อมีคนตายเพิ่ม (ไม่มีไฟล์ = ข้ามเงียบๆ) ===== */
+const DV={playing:false,q:[],v:null,ov:null,seen:undefined,ex:["mp4","webm","mov"],tm:0,badU:{},c:[],ci:0,last:"wolf"};
+function whenIdle(f){ if(DV.playing) DV.q.push(f); else f(); }
+function dvCands(kind){ const o=[]; ["death-"+kind,"death"].forEach(n=>{ DV.ex.forEach(e=>{ const u="videos/"+n+"."+e; if(!DV.badU[u]) o.push(u); }); }); return o; }
+function dvEl(){
+  if(DV.v) return DV.v;
+  const ov=document.createElement("div"); ov.id="dvid"; ov.innerHTML='<video playsinline webkit-playsinline preload="auto"></video><div class="dvskip">แตะเพื่อข้าม</div>'; document.body.appendChild(ov);
+  const vd=ov.querySelector("video"); DV.ov=ov; DV.v=vd;
+  vd.addEventListener("error",()=>{ if(!DV.playing) return; DV.badU[DV.c[DV.ci]]=1; DV.ci++; if(DV.ci<DV.c.length){ vd.src=DV.c[DV.ci]; try{ vd.load(); vd.play().catch(()=>{}); }catch(e){} } else dvEnd(); });
+  vd.addEventListener("ended",dvEnd);
+  vd.addEventListener("playing",()=>{ ov.classList.add("on"); clearTimeout(DV.tm); DV.tm=setTimeout(dvEnd,40000); });
+  ov.addEventListener("click",dvEnd);
+  return vd;
+}
+function dvDuck(up){ const a=AUD.cur&&AUD.el[AUD.cur]; if(a&&AUD.on) fade(a,up?AUD.vol.bg:AUD.vol.bg*.15,400,false); }
+function dvEnd(){
+  if(!DV.playing) return; DV.playing=false; clearTimeout(DV.tm);
+  try{ DV.v.pause(); }catch(e){} if(DV.ov) DV.ov.classList.remove("on"); dvDuck(true);
+  DV.q.splice(0).forEach(f=>{ try{ f(); }catch(e){ console.error(e); } });
+}
+/* kind: "wolf" = ตายตอนเช้า (หมาป่ากัด/คืนที่มีคนตาย)  "vote" = ถูกโหวตออก  ไม่มีไฟล์เฉพาะ → ใช้ death.mp4 */
+function dvPlay(kind){
+  if(DV.playing) return; const c=dvCands(kind); if(!c.length) return; const vd=dvEl();
+  DV.c=c; DV.ci=0; DV.playing=true; dvDuck(false); vd.muted=!AUD.on; vd.src=c[0]; try{ vd.load(); }catch(e){}
+  DV.tm=setTimeout(()=>{ if(!DV.ov.classList.contains("on")) dvEnd(); },8000);
+  const p=vd.play(); if(p&&p.catch) p.catch(()=>{ if(!DV.playing) return; vd.muted=true; const p2=vd.play(); if(p2&&p2.catch) p2.catch(()=>{}); });
+}
+function deathFor(v){
+  if(!v||!v.players) return; const n=v.players.filter(p=>!p.alive).length;
+  if(v.phase==="deal"){ DV.seen=0; return; }
+  if(DV.seen===undefined){ DV.seen=n; return; }
+  const up=n>DV.seen; DV.seen=n; if(!up) return;
+  if(v.g==="voteres"||v.g==="vote") DV.last="vote"; else if(v.g==="day") DV.last="wolf";
+  dvPlay(DV.last);
+}
+/* ===== เสียงบรรยาย (โหมดอัตโนมัติ) ใช้เสียงพูดของเครื่อง th-TH แต่ละคนเปิด/ปิดได้เอง ===== */
+const SAY={on:true,ok:!!window.speechSynthesis&&typeof SpeechSynthesisUtterance!=="undefined",v:null,unl:0};
+try{ SAY.on=localStorage.getItem("ww-say")!=="0"; }catch(e){}
+function say(t){ if(!SAY.ok||!SAY.on||!t) return; try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang="th-TH"; if(!SAY.v){ SAY.v=(speechSynthesis.getVoices()||[]).find(x=>/^th/i.test(x.lang))||null; } if(SAY.v) u.voice=SAY.v; u.rate=.95; speechSynthesis.speak(u); }catch(e){} }
+if(SAY.ok){ try{ speechSynthesis.onvoiceschanged=()=>{ SAY.v=null; }; }catch(e){} }
+document.addEventListener("pointerdown",()=>{ if(SAY.ok&&!SAY.unl){ SAY.unl=1; try{ const u=new SpeechSynthesisUtterance(" "); u.volume=0; speechSynthesis.speak(u); }catch(e){} } },{passive:true});
+const noEmo=t=>String(t==null?"":t).replace(/[\u{1F000}-\u{1FFFF}\u2600-\u27BF\uFE0F\u200D]/gu,"").replace(/\s+/g," ").trim();
+let lastNar="";
+function narrate(v){
+  if(!v||!v.auto) return;
+  const k=v.phase+"|"+v.night+"|"+v.g+"|"+v.introPos+"|"+v.votesLeft+"|"+(v.hunterWho||"")+"|"+(v.dawn?v.dawn.length:0)+"|"+(v.voteres?1:0); if(k===lastNar) return; lastNar=k;
+  let t="", delay=300;
+  if(v.phase==="deal") t="ทุกคนดูไพ่ของตัวเอง แล้วกดรับทราบ อย่าให้ใครเห็นหน้าจอ";
+  else if(v.phase==="intro"){ const w=v.players[v.introWho]; t="ตาของ "+(w?w.name:"")+" แนะนำตัวได้เลย"; }
+  else if(v.phase==="over") t=v.over?noEmo(v.over.text):"";
+  else if(v.g==="night") t="คืนที่ "+v.night+" มาถึงแล้ว ทุกคนปิดไมค์และหลับตา ผู้มีพลังเลือกบนมือถือ";
+  else if(v.g==="day"){ t="เช้าวันที่ "+v.dayNo+" แล้ว. "+(v.dawn||[]).map(noEmo).join(". ")+". เปิดไมค์ถกเถียงกันได้เลย"; delay=(AUD.on&&AUD.ok.dawn?3500:400)+(v.wolfKill&&AUD.on&&AUD.ok.kill?2500:0); }
+  else if(v.g==="vote") t="ได้เวลาโหวต เลือกคนที่จะกำจัดบนมือถือ";
+  else if(v.g==="voteres"&&v.voteres) t="ผลโหวต "+noEmo(v.voteres.text)+". "+(v.voteres.extra||[]).map(noEmo).join(". ");
+  else if(v.g==="hunter") t="นายพราน "+(v.hunterWho||"")+" เลือกเป้าหมายที่จะยิง";
+  if(!t) return;
+  whenIdle(()=>setTimeout(()=>{ if(lastNar===k) say(t); },delay));
+}
+const sayBtn=()=>{ const on=(O.view&&O.view.auto)||(O.lobby&&O.lobby.settings&&O.lobby.settings.auto); return on&&SAY.ok?'<button class="sndbtn saybtn" data-a="say" aria-label="เสียงบรรยาย" aria-pressed="'+SAY.on+'">'+(SAY.on?"🗣️":"🤐")+'</button>':""; };
 let lastSfx="";
 function sfxFor(v){ const k=v.phase+"|"+v.night+"|"+v.g+"|"+(v.dawn?v.dawn.length:0)+"|"+(v.voteres?1:0); if(k===lastSfx) return; lastSfx=k;
   if(v.phase==="night") tone([220,165],.25); else if(v.g==="day"){ if(!AUD.ok.dawn) tone([392,523],.18); } else if(v.g==="vote") tone([330,330],.12); else if(v.phase==="over") tone([523,659,784],.2); else if(v.phase==="intro") tone([440],.12); }
@@ -682,7 +770,7 @@ function audioFor(){
   else if(!v) bg="lobby";
   else { g=v.phase==="over"?"over":v.g;
     bg=g==="over"?null:g==="night"?"night":(g==="day"||g==="vote"||g==="voteres"||g==="hunter")?"day":"lobby"; }
-  if(g!==AUD.prevG){ if(AUD.prevG==="night"&&g&&g!=="night"&&g!=="over"){ if(v&&v.wolfKill) fxThen("kill",()=>fx("dawn")); else fx("dawn"); } if(g==="over") fx("end"); AUD.prevG=g; }
+  if(g!==AUD.prevG){ if(AUD.prevG==="night"&&g&&g!=="night"&&g!=="over"){ const wk=!!(v&&v.wolfKill); whenIdle(()=>{ if(wk) fxThen("kill",()=>fx("dawn")); else fx("dawn"); }); } if(g==="over") fx("end"); AUD.prevG=g; }
   bgPlay(bg);
 }
 function setSound(on){ AUD.on=on; try{ localStorage.setItem("ww-snd",on?"1":"0"); }catch(e){}
@@ -737,17 +825,18 @@ function vEntry(){
   '<div class="panel"><label class="label" for="nm">ชื่อของคุณ</label><input id="nm" maxlength="20" value="'+esc(O.name)+'" placeholder="เช่น บีม" autocomplete="off">'+
   (O.err?'<div class="errbox">'+esc(O.err)+'</div>':"")+
   '<div class="label">เข้าร่วมห้อง (ผู้เล่น)</div><div class="row"><input id="cd" class="code" maxlength="4" value="'+esc(O.joinCode)+'" placeholder="รหัส 4 ตัว" autocapitalize="characters" autocomplete="off"><button class="btn primary" data-a="join" '+(connecting?"disabled":"")+'>เข้าร่วม</button></div>'+
-  '<div class="label">หรือ</div><button class="btn block" data-a="create" '+(connecting?"disabled":"")+'>สร้างห้อง (คุณเป็นผู้ดำเนินเกม ไม่ได้เล่น)</button>'+
+  '<div class="label">หรือ</div><button class="btn primary block" data-a="createauto" '+(connecting?"disabled":"")+'>สร้างห้อง — โหมดอัตโนมัติ (คุณเล่นด้วย ระบบดำเนินเกมให้)</button><button class="btn block" data-a="create" '+(connecting?"disabled":"")+'>สร้างห้อง — มีผู้ดำเนินเกมเป็นคน (ไม่ได้เล่น)</button>'+
   (()=>{ let c=""; try{c=localStorage.getItem("ww-host")||"";}catch(e){} return c?'<button class="btn block" data-a="resume" '+(connecting?"disabled":"")+'>กลับเข้าห้อง '+esc(c)+' (ผู้ดำเนินเกมเดิม)</button>':""; })()+(!dbOK()?'<div class="errbox">ยังไม่ได้ตั้งค่า Firebase: แก้ค่า FB ที่ต้นสคริปต์ในไฟล์ index.html</div>':"")+(connecting?'<div class="hint">กำลังเชื่อมต่อ…</div>':"")+'</div>'+
   '<details class="panel rules"><summary>วิธีเล่นสั้นๆ</summary><ol><li>เพื่อนคนหนึ่งสร้างห้องเป็นผู้ดำเนินเกม คนอื่นกรอกรหัสเข้าร่วม</li><li>ผู้ดำเนินเกมเลือกไพ่ ดูมิเตอร์ความสมดุล แล้วเริ่มเกม ทุกคนดูไพ่ของตัวเองบนมือถือ</li><li>กลางคืน ทุกคนปิดไมค์และเลือกพลังบนมือถือ กลางวันคุยกันในสายแล้วโหวตในเกม</li><li>ฝ่ายชาวบ้านต้องกำจัดมนุษย์หมาป่า ส่วนหมาป่าต้องมีจำนวนเท่ากับหรือมากกว่าที่เหลือ</li></ol></details>';
 }
 function modLobby(){
-  const lb=O.lobby, st=lb.settings, c=st.counts, nPl=lb.players.length-1, tot=deckSum(c).n;
+  const lb=O.lobby, st=lb.settings, c=st.counts, nPl=lb.players.length-(st.auto?0:1), tot=deckSum(c).n;
   const grp=(t,title)=>'<div class="label">'+title+'</div>'+ROLES.filter(r=>t==="v"?(r.t==="v"&&r.v>0):t==="n"?(r.t==="v"&&r.v<=0):(r.t==="w"||r.t==="x")).map(r=>{ const n=c[r.id]||0;
     return '<div class="rrow '+(n?"on":"")+'"><div class="rinfo">'+rimg(r.id)+'<div><div class="rt">'+esc(r.th)+' '+valChip(r)+(UNSURE[r.id]?' <span class="q" title="'+esc(UNSURE[r.id])+'">?</span>':"")+'</div><div class="rd">'+esc(r.d)+'</div></div></div><div class="stepper"><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="-1" aria-label="ลด">−</button><span class="num">'+n+'</span><button class="btn round" data-a="cnt" data-k="'+r.id+'" data-d="1" aria-label="เพิ่ม">+</button></div></div>'; }).join("");
   const warns=[]; if(c.apprentice&&!c.seer) warns.push("มีศิษย์เทพพยากรณ์แต่ไม่มีเทพพยากรณ์"); if(c.mason===1) warns.push("เมสันควรมีอย่างน้อย 2 คน"); if(!(c.werewolf||c.lone||c.cub)) warns.push("ยังไม่มีมนุษย์หมาป่าตัวที่ฆ่าได้");
-  return head("ห้องรอ — คุณคือผู้ดำเนินเกม")+invite()+
-  '<div class="panel"><div class="label">ผู้เล่น ('+nPl+' คน)</div>'+(nPl?'<div class="chips">'+lb.players.slice(1).map(p=>'<span class="chip">'+(p.connected?"🟢":"⚪")+" "+esc(p.name)+'</span>').join("")+'</div>':'<div class="hint">รอเพื่อนเข้าร่วม… ส่งลิงก์หรือรหัสด้านบน (ผู้ดำเนินเกมไม่นับเป็นผู้เล่น)</div>')+'</div>'+
+  return head(st.auto?"ห้องรอ — โหมดอัตโนมัติ":"ห้องรอ — คุณคือผู้ดำเนินเกม")+invite()+
+  '<div class="panel"><label class="row"><input type="checkbox" data-a="autom" '+(st.auto?"checked":"")+'> <b>โหมดอัตโนมัติ</b> (ไม่มีผู้ดำเนินเกม — คุณเล่นด้วย)</label><div class="hint">'+(st.auto?"ระบบเดินเกมให้เอง: คืน 60 วิ · กลางวัน "+st.day+" นาที · โหวต 60 วิ มีเสียงบรรยายบนมือถือแต่ละคน ปิดช่องนี้เพื่อใช้ผู้ดำเนินเกมที่เป็นคนจริง":"ผู้ดำเนินเกมเป็นคน (คุณไม่ได้เล่น) ติ๊กช่องนี้เพื่อให้ระบบดำเนินเกมอัตโนมัติและคุณเล่นด้วย")+'</div></div>'+
+  '<div class="panel"><div class="label">ผู้เล่น ('+nPl+' คน)</div>'+(nPl?'<div class="chips">'+lb.players.slice(st.auto?0:1).map(p=>'<span class="chip">'+(p.connected?"🟢":"⚪")+" "+esc(p.name)+'</span>').join("")+'</div>':'<div class="hint">รอเพื่อนเข้าร่วม… ส่งลิงก์หรือรหัสด้านบน'+(st.auto?"":" (ผู้ดำเนินเกมไม่นับเป็นผู้เล่น)")+'</div>')+'</div>'+
   '<div class="panel"><div class="row between"><h3>เลือกไพ่ '+tot+'/'+nPl+'</h3><button class="btn" data-a="auto" '+(nPl<4?"disabled":"")+'>🎲 สุ่มให้สมดุล</button></div>'+balance(c)+(warns.length?'<div class="warnbox">'+warns.map(esc).join("<br>")+'</div>':"")+
   '<div class="hint">จำนวนไพ่ต้องเท่ากับจำนวนผู้เล่น ตัวเลข + คือเข้าข้างฝ่ายมนุษย์ ตัวเลข − คือเข้าข้างหมาป่า ผลรวมใกล้ 0 คือสมดุล</div></div>'+
   '<div class="panel">'+grp("v","ฝ่ายชาวบ้าน (+)")+grp("n","ฝ่ายชาวบ้านที่มีจุดอ่อน (0 / −)")+grp("w","ฝ่ายมนุษย์หมาป่าและฝ่ายอื่น")+'</div>'+
@@ -760,7 +849,7 @@ function head(t){ return '<div class="brand"><div class="mark">🐺 '+esc(t)+'</
 function invite(){ const url=location.origin+location.pathname+"?room="+O.code; return '<div class="panel invite"><div class="label">รหัสห้อง</div><div class="roomcode">'+esc(O.code)+'</div><div class="row"><button class="btn" data-a="copy" data-v="'+esc(url)+'">คัดลอกลิงก์เชิญ</button></div></div>'; }
 function plLobby(){
   const lb=O.lobby, st=lb.settings, c=st.counts, tot=deckSum(c).n;
-  return head("ห้องรอ")+invite()+'<div class="panel"><div class="label">ผู้เล่นในห้อง</div><div class="chips">'+lb.players.map((p,i)=>'<span class="chip">'+(i===0?"🎙️ ":p.connected?"🟢 ":"⚪ ")+esc(p.name)+(i===0?" (ผู้ดำเนินเกม)":"")+(i===O.me?" ← คุณ":"")+'</span>').join("")+'</div><div class="hint">รอผู้ดำเนินเกมเลือกไพ่และเริ่มเกม</div></div>'+
+  return head("ห้องรอ")+invite()+'<div class="panel"><div class="label">ผู้เล่นในห้อง</div><div class="chips">'+lb.players.map((p,i)=>'<span class="chip">'+(i===0?(st.auto?"👑 ":"🎙️ "):p.connected?"🟢 ":"⚪ ")+esc(p.name)+(i===0?(st.auto?" (เจ้าของห้อง)":" (ผู้ดำเนินเกม)"):"")+(i===O.me?" ← คุณ":"")+'</span>').join("")+'</div><div class="hint">'+(st.auto?"โหมดอัตโนมัติ — รอเจ้าของห้องเลือกไพ่และกดเริ่มเกม จากนั้นระบบจะดำเนินเกมให้เอง":"รอผู้ดำเนินเกมเลือกไพ่และเริ่มเกม")+'</div></div>'+
    '<div class="panel"><div class="label">ไพ่ในเกมนี้ ('+tot+' ใบ)</div>'+balance(c)+'<div class="chips">'+Object.keys(c).map(k=>'<span class="chip row" style="gap:6px;flex-wrap:nowrap">'+rimg(k,1)+esc(RM[k].th)+(c[k]>1?" ×"+c[k]:"")+' '+sg(RM[k].v)+'</span>').join("")+'</div></div><button class="btn ghost block" data-a="leave">ออกจากห้อง</button>';
 }
 
@@ -793,23 +882,24 @@ function vPlayer(v){
   if(v.phase==="deal"){
     const shown=!pv.ready||O.ui.revealCard;
     return h+'<div class="stage">ไพ่ของคุณ</div>'+(shown?cardBlock(pv,true)+(pv.info.length?'<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':""):'<div class="panel center"><p>🔒 ไพ่ถูกซ่อนไว้แล้ว</p></div>')+
-     (pv.ready?'<div class="panel center"><p>รับทราบแล้ว รอผู้ดำเนินเกม… ('+v.readyN+'/'+v.readyTot+')</p></div><button class="btn ghost block" data-a="revc">'+(O.ui.revealCard?"ซ่อนไพ่":"ดูไพ่อีกครั้ง")+'</button>':'<button class="btn primary block" data-a="ready">รับทราบ — ซ่อนไพ่</button>')+'<div class="hint center">อย่าให้ใครเห็นหน้าจอของคุณ</div>';
+     (pv.ready?'<div class="panel center"><p>รับทราบแล้ว รอ'+(v.auto?"เพื่อนๆ":"ผู้ดำเนินเกม")+'… ('+v.readyN+'/'+v.readyTot+')'+(v.auto&&v.autoEnd?' <span class="hint">เริ่มเองใน</span> '+timer(v.autoEnd):"")+'</p></div><button class="btn ghost block" data-a="revc">'+(O.ui.revealCard?"ซ่อนไพ่":"ดูไพ่อีกครั้ง")+'</button>':'<button class="btn primary block" data-a="ready">รับทราบ — ซ่อนไพ่</button>')+'<div class="hint center">อย่าให้ใครเห็นหน้าจอของคุณ</div>';
   }
   const peek='<button class="peek" data-a="peek"><span>'+pv.e+' '+esc(pv.rn)+' '+valChip({v:pv.v})+'</span><span class="hint">'+(O.ui.peek?"ซ่อน":"แตะเพื่อดูไพ่")+'</span></button>'+(O.ui.peek?cardBlock(pv):"");
   const stage=!pv.alive?(pv.ghost?"👻 คุณเป็นผู้ชม (พรายกระซิบ)":"💀 คุณตายแล้ว — ห้ามพูดหรือบอกใบ้"):"";
   if(v.phase==="intro"){ const w=v.players[v.introWho], me=v.introWho===v.me; body+='<div class="panel center"><div class="label">ช่วงแนะนำตัว ('+(v.introPos+1)+'/'+v.introTotal+')</div><div class="who">'+(me?"ถึงตาคุณ!":esc(w?w.name:""))+'</div><div class="hint">'+(me?"แนะนำตัวในสายได้เลย":"ฟังการแนะนำตัวในสาย")+'</div>'+timer(v.introEnd)+'</div>'; }
   else if(v.phase==="introdone"){ body+='<div class="panel center"><p>แนะนำตัวครบแล้ว รอผู้ดำเนินเกมเริ่มคืนแรก</p></div>'; }
-  else if(v.phase==="over"){ body+=overBox(v)+'<div class="hint center">รอผู้ดำเนินเกมเริ่มรอบใหม่</div>'; }
-  else if(v.g==="night") body+=nightPanel(v);
-  else if(v.g==="day") body+=dawnBox(v)+(v.dayEnd?'<div class="panel center"><div class="label">เวลาถกเถียง</div>'+timer(v.dayEnd)+'</div>':"")+(pv.alive?'<div class="hint center">คุยกันในสาย แล้วรอผู้ดำเนินเกมเริ่มโหวต</div>':"");
-  else if(v.g==="vote") body+=(v.voteIntro.length?'<div class="panel">'+v.voteIntro.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':"")+votePanel(v);
-  else if(v.g==="voteres") body+=voteBox(v)+'<div class="hint center">รอผู้ดำเนินเกม…</div>';
-  else if(v.g==="hunter") body+=hunterPanel(v);
+  else if(v.phase==="over"){ body+=overBox(v)+(v.auto&&O.role==="host"?'<button class="btn primary block" data-a="cmd" data-c="again">กลับไปห้องรอ (เล่นใหม่)</button>':'<div class="hint center">'+(v.auto?"รอเจ้าของห้องเริ่มรอบใหม่":"รอผู้ดำเนินเกมเริ่มรอบใหม่")+'</div>'); }
+  else if(v.g==="night") body+=nightPanel(v)+autoClock(v,"เหลือเวลาคืนนี้");
+  else if(v.g==="day") body+=dawnBox(v)+(v.dayEnd?'<div class="panel center"><div class="label">เวลาถกเถียง</div>'+timer(v.dayEnd)+'</div>':"")+(pv.alive?'<div class="hint center">'+(v.auto?"คุยกันในสาย เมื่อหมดเวลาระบบจะเปิดโหวตให้เอง":"คุยกันในสาย แล้วรอผู้ดำเนินเกมเริ่มโหวต")+'</div>':"");
+  else if(v.g==="vote") body+=(v.voteIntro.length?'<div class="panel">'+v.voteIntro.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':"")+votePanel(v)+autoClock(v,"เหลือเวลาโหวต");
+  else if(v.g==="voteres") body+=voteBox(v)+'<div class="hint center">'+(v.auto?"คืนถัดไปจะเริ่มเอง…":"รอผู้ดำเนินเกม…")+'</div>';
+  else if(v.g==="hunter") body+=hunterPanel(v)+autoClock(v,"เหลือเวลาเลือกเป้าหมาย");
   if(pv.msgs.length&&v.phase!=="over") body+='<div class="panel"><div class="label">ข้อมูลลับของคุณ</div>'+pv.msgs.map(m=>'<p>'+(m.n?'<span class="hint">คืน '+m.n+': </span>':"")+esc(m.text)+'</p>').join("")+'</div>';
   if(pv.info.length&&v.phase!=="over") body+='<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>';
   if(v.ghostChars&&v.ghostChars.length) body+='<div class="panel"><div class="label">ข้อความจากยมโลก</div><div class="ghost">'+v.ghostChars.map(esc).join(" ")+'</div></div>';
-  return h+(stage?'<div class="stage">'+stage+'</div>':"")+peek+body+'<div class="panel"><div class="label">ผู้เล่น</div>'+roster(v,false)+'</div><button class="btn ghost block" data-a="leave">ออกจากห้อง</button>';
+  return h+(stage?'<div class="stage">'+stage+'</div>':"")+peek+body+'<div class="panel"><div class="label">ผู้เล่น</div>'+roster(v,false)+'</div><button class="btn ghost block" data-a="leave">'+(O.role==="host"?"ปิดห้อง":"ออกจากห้อง")+'</button>';
 }
+function autoClock(v,lab){ return v.auto&&v.autoEnd?'<div class="panel center"><span class="hint">'+lab+'</span> '+timer(v.autoEnd)+'</div>':""; }
 function pickChips(v,pool,sel,wolfPicks){
   return '<div class="chips">'+pool.map(j=>{ const on=sel.includes(j); const who=(wolfPicks||[]).filter(w=>w.pick&&w.pick.includes(v.players[j].name)).map(w=>w.n);
     return '<button class="chip pick" aria-pressed="'+on+'" data-a="tog" data-p="'+j+'">'+esc(v.players[j].name)+(who.length?' <small>('+who.map(esc).join(",")+')</small>':"")+'</button>'; }).join("")+'</div>';
@@ -836,7 +926,7 @@ function hx(v,pool,cur,key){ return '<div class="chips">'+pool.map(j=>'<button c
 function votePanel(v){
   const p=v.priv.prompt; if(!p) return '<div class="panel center"><p>'+(v.priv.alive?"คุณไม่ได้อยู่ในการโหวตรอบนี้":"ผู้ตายโหวตไม่ได้")+' ('+v.votedN+'/'+v.voteTot+')</p></div>';
   if(p.k==="auto") return '<div class="panel center"><h3>'+esc(p.title)+'</h3><p>'+esc(p.hint)+'</p></div>';
-  return '<div class="panel"><h3>โหวตกำจัด ('+v.votedN+'/'+v.voteTot+')'+(v.votesLeft>1?" — รอบที่ 1 จาก 2":"")+'</h3><div class="chips">'+p.pool.map(j=>'<button class="chip pick" aria-pressed="'+(p.mine===j)+'" data-a="vote" data-p="'+j+'">'+esc(v.players[j].name)+'</button>').join("")+'<button class="chip pick" aria-pressed="'+(p.mine==="none")+'" data-a="vote" data-p="none">ไม่กำจัดใคร</button></div>'+(p.done?'<div class="okbox">✅ โหวตแล้ว (เปลี่ยนได้จนกว่าผู้ดำเนินเกมสรุป)</div>':"")+'</div>';
+  return '<div class="panel"><h3>โหวตกำจัด ('+v.votedN+'/'+v.voteTot+')'+(v.votesLeft>1?" — รอบที่ 1 จาก 2":"")+'</h3><div class="chips">'+p.pool.map(j=>'<button class="chip pick" aria-pressed="'+(p.mine===j)+'" data-a="vote" data-p="'+j+'">'+esc(v.players[j].name)+'</button>').join("")+'<button class="chip pick" aria-pressed="'+(p.mine==="none")+'" data-a="vote" data-p="none">ไม่กำจัดใคร</button></div>'+(p.done?'<div class="okbox">✅ โหวตแล้ว (เปลี่ยนได้จนกว่า'+(v.auto?"หมดเวลาหรือทุกคนโหวตครบ":"ผู้ดำเนินเกมสรุป")+')</div>':"")+'</div>';
 }
 function hunterPanel(v){ const p=v.priv.prompt;
   if(!p) return '<div class="panel center"><h3>🎯 รอ '+esc(v.hunterWho||"")+' (นายพราน) เลือกเป้าหมาย</h3></div>';
@@ -850,22 +940,22 @@ function render(){
   else if(O.view){ html=O.view.mod?vMod(O.view):vPlayer(O.view); }
   else if(O.lobby) html=O.role==="host"?modLobby():plLobby();
   else html='<div class="panel center">กำลังเชื่อมต่อ…</div>';
-  audioFor(); bgFor(); html+=sndBtn();
+  audioFor(); bgFor(); html+=sndBtn()+sayBtn();
   const y=window.scrollY; $app.innerHTML=html; window.scrollTo(0,y);
 }
 $app.addEventListener("input",e=>{ const t=e.target; if(t.id==="nm") O.name=t.value; else if(t.id==="cd"){ O.joinCode=t.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4); t.value=O.joinCode; } else if(t.id==="gtxt") O.ui.txt=t.value; });
 $app.addEventListener("change",e=>{ const t=e.target.closest("[data-a]"); if(!t) return;
-  if(t.dataset.a==="rev") toHost({t:"cmd",c:"settings",reveal:t.checked});
+  if(t.dataset.a==="rev") toHost({t:"cmd",c:"settings",reveal:t.checked}); if(t.dataset.a==="autom") toHost({t:"cmd",c:"settings",auto:t.checked});
   if(t.dataset.a==="set") toHost({t:"cmd",c:"settings",[t.dataset.k]:+t.value}); });
 $app.addEventListener("click",e=>{
   const b=e.target.closest("[data-a]"); if(!b||b.tagName==="SELECT"||b.type==="checkbox") return; const a=b.dataset.a, v=O.view, ui=O.ui;
   try{ switch(a){
-    case "create": onCreate(); break; case "resume": onResume(); break; case "join": onJoin(); break; case "leave": leave(); break;
+    case "create": O.autoNext=false; onCreate(); break; case "createauto": O.autoNext=true; onCreate(); break; case "resume": onResume(); break; case "join": onJoin(); break; case "leave": leave(); break;
     case "copy": { const u=b.dataset.v; (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast("คัดลอกลิงก์แล้ว"),()=>toast("คัดลอกไม่ได้ ส่งรหัสห้อง "+O.code+" แทน")); break; }
     case "cnt": { const c=Object.assign({},O.lobby.settings.counts), k=b.dataset.k; c[k]=Math.max(0,Math.min(RM[k].max,(c[k]||0)+(+b.dataset.d))); if(!c[k]) delete c[k]; O.lobby.settings.counts=c; toHost({t:"cmd",c:"settings",counts:c}); render(); break; }
     case "auto": toHost({t:"cmd",c:"auto"}); break; case "start": toHost({t:"cmd",c:"start"}); break;
     case "cmd": toHost({t:"cmd",c:b.dataset.c}); break;
-    case "zoom": zoomRole(b); break; case "note": toHost({t:"cmd",c:"note",p:+b.dataset.p,k:b.dataset.k}); break; case "nclear": toHost({t:"cmd",c:"nclear"}); break; case "mkill": if(confirm("สั่งให้ “"+b.dataset.n+"” ตายจริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"fkill",p:+b.dataset.p}); break; case "mrev": if(confirm("ชุบชีวิต “"+b.dataset.n+"” จริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"frev",p:+b.dataset.p}); break; case "snd": setSound(!AUD.on); render(); break; case "ready": ui.revealCard=false; toHost({t:"ready"}); break; case "revc": ui.revealCard=!ui.revealCard; render(); break; case "peek": ui.peek=!ui.peek; render(); break;
+    case "zoom": zoomRole(b); break; case "note": toHost({t:"cmd",c:"note",p:+b.dataset.p,k:b.dataset.k}); break; case "nclear": toHost({t:"cmd",c:"nclear"}); break; case "mkill": if(confirm("สั่งให้ “"+b.dataset.n+"” ตายจริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"fkill",p:+b.dataset.p}); break; case "mrev": if(confirm("ชุบชีวิต “"+b.dataset.n+"” จริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"frev",p:+b.dataset.p}); break; case "snd": setSound(!AUD.on); render(); break; case "say": SAY.on=!SAY.on; try{ localStorage.setItem("ww-say",SAY.on?"1":"0"); }catch(e){} if(SAY.on) say("เปิดเสียงบรรยายแล้ว"); else { try{ speechSynthesis.cancel(); }catch(e){} } render(); break; case "ready": ui.revealCard=false; toHost({t:"ready"}); break; case "revc": ui.revealCard=!ui.revealCard; render(); break; case "peek": ui.peek=!ui.peek; render(); break;
     case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } render(); break; }
     case "submit": { const pr=v.priv.prompt; if(pr.k==="witch") toHost({t:"act",a:{h:ui.h,x:ui.x}}); else toHost({t:"act",a:{t:ui.sel}}); break; }
     case "skip": toHost({t:"act",a:{t:[]}}); break;
@@ -874,7 +964,7 @@ $app.addEventListener("click",e=>{
     case "gsend": { const el=document.getElementById("gtxt"); toHost({t:"act",a:{s:el?el.value:ui.txt}}); break; }
     case "chat": { const el=document.getElementById("chat"); if(el&&el.value.trim()){ toHost({t:"chat",s:el.value}); el.value=""; } break; }
     case "vote": toHost({t:"vote",v:b.dataset.p==="none"?"none":+b.dataset.p}); break;
-    case "shoot": { const p=b.dataset.p; if(O.role==="host") toHost({t:"cmd",c:"shoot",v:p==null?null:+p}); else toHost({t:"shoot",v:p==null?null:+p}); break; }
+    case "shoot": { const p=b.dataset.p; if(O.role==="host"&&!(v&&v.auto)) toHost({t:"cmd",c:"shoot",v:p==null?null:+p}); else toHost({t:"shoot",v:p==null?null:+p}); break; }
   } }catch(err){ console.error(err); }
 });
 async function wl(){ try{ if(navigator.wakeLock&&O.phase!=="entry"&&O.phase!=="connecting"&&!document.hidden) WLK=await navigator.wakeLock.request("screen"); }catch(e){} }
