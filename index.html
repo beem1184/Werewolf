@@ -168,7 +168,7 @@ function introNext(G){ G.introPos++; return G.introPos < G.introOrder.length; }
 
 /* ---------- night ---------- */
 function startNight(G){ G.wolfKill=false;
-  G.night++; G.phase="night"; G.acts={}; G.protect=new Set(); G.dawn=[]; G.voteres=null;
+  G.night++; G.phase="night"; G.acts={}; G.props={}; G.protect=new Set(); G.dawn=[]; G.voteres=null;
   G.killCount = G.cubPending ? 2 : 1; G.cubPending=false; G.wolvesSick=G.sickNext; G.sickNext=false;
   G.mute=null; G.hexed=null; G.dayDouble=false;
   if (G.night===3) G.p.forEach((p,i)=>{ if (p.role==="drunk" && p.alive){
@@ -201,7 +201,7 @@ function nightSpec(G,i){
     case "vampire": return pk(1,oth,"เลือกเหยื่อ 1 คน","เขาจะตายตอนเริ่มโหวตของวันพรุ่งนี้");
   }
   if (p.f.cult && p.f.cultLeader && r!=="cult") return pk(1,oth.filter(j=>!G.p[j].f.cult),"ชักจูงผู้เล่น 1 คนเข้าลัทธิ","เขาจะไม่รู้ตัว");
-  if (isKiller(p) && n>=1 && !G.wolvesSick){
+  if (isKiller(p) && !G.wolvesSick){
     const pool = all.filter(j=>!G.pack.has(j));
     const nn = Math.min(G.killCount,pool.length);
     return nn ? {k:"wolf",n:nn,pool,title:G.killCount===2?"เลือกเหยื่อ 2 คน":"เลือกเหยื่อ",hint:"หมาป่าส่วนใหญ่ต้องเลือกตรงกันจึงจะกำจัดได้"} : null;
@@ -281,15 +281,15 @@ function endNight(G){
   });
   /* kills */
   if (G.bruteQ!=null){ const b=G.bruteQ; G.bruteQ=null; attempt(G,b,"หนุ่มถึกถูกหมาป่ากำจัด (เลื่อนมาคืนนี้)"); }
-  const wt = (N>=1 && !G.wolvesSick) ? wolfTarget(G) : null;
+  const wt = (!G.wolvesSick) ? wolfTarget(G) : null;
   if (wt) wt.forEach(t=>{ const q=P[t]; if(!q.alive) return; L(G,"หมาป่าเลือก "+nm(G,t));
     if (q.role==="vampire"){ L(G,"แวมไพร์ไม่ตายจากหมาป่า"); return; }
     if (G.protect.has(t)){ L(G,nm(G,t)+" ถูกคุ้มครองจากหมาป่า"); return; }
     if (q.role==="brute"){ G.bruteQ=t; L(G,"หนุ่มถึกรอดคืนนี้ แต่จะตายคืนถัดไป"); return; }
     if (q.role==="cursed" && !q.f.converted){ q.f.converted=true; G.pack.add(t); note(G,t,"คุณถูกหมาป่ากัด! ตอนนี้คุณเป็นมนุษย์หมาป่าแล้ว"); L(G,nm(G,t)+" (ผู้ต้องคำสาป) กลายเป็นหมาป่า"); return; }
     const died=kill(G,t,"ถูกมนุษย์หมาป่า"); if(died && q.role==="diseased"){ G.sickNext=true; L(G,"หมาป่าติดโรค คืนถัดไปกำจัดไม่ได้"); } });
-  else if (N>=1 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
-  else if (N>=1) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
+  else if (G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
+  else L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="witch" && a && a.x!=null){ p.f.killUsed=true; L(G,"แม่มดวางยาพิษ "+nm(G,a.x)); attempt(G,a.x,"ยาพิษแม่มด"); } });
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="vampire"&&p.alive&&a&&a.t&&a.t.length){ G.vampMark=a.t[0]; L(G,"แวมไพร์เลือก "+nm(G,a.t[0])); } });
   /* dawn */
@@ -549,6 +549,7 @@ function hostRecv(i,d){
   else if(d.t==="act" && ph==="night" && G.phase==="night"){ if(submitAct(G,s,d.a)){ H.dirty=1; pushAll(); if(nightReady(G)) { H.nightAuto=Date.now()+1500; } else H.nightAuto=0; } }
   else if(d.t==="vote" && G&&G.phase==="vote"){ if(submitVote(G,s,d.v)) pushAll(); }
   else if(d.t==="shoot" && G&&G.phase==="hunter" && G.hunterQ[0]===s){ hunterShoot(G,d.v==null?null:+d.v); pushAll(); }
+  else if(d.t==="prop" && ph==="night" && G&&G.phase==="night"){ const sp=nightSpec(G,s); if(sp&&sp.k==="wolf"){ const t=Array.isArray(d.p)?d.p:[]; if(t.length<=sp.n&&new Set(t).size===t.length&&t.every(x=>Number.isInteger(x)&&sp.pool.includes(x))){ G.props=G.props||{}; if(t.length) G.props[s]=t.slice(); else delete G.props[s]; pushAll(); } } }
   else if(d.t==="chat" && G&&G.phase==="night"){ const p=G.p[s]; if(p&&isKiller(p)&&p.alive){ const txt=clean(d.s,40); if(txt){ H.wolfChat.push({n:p.name,s:txt}); if(H.wolfChat.length>30) H.wolfChat.shift(); pushAll(); } } }
 }
 function modCmd(d){
@@ -651,7 +652,7 @@ function viewFor(i){
   const p=G.p[s]; base.me=s;
   base.priv={ role:p.role, rn:RM[p.role].th, e:RM[p.role].e, d:RM[p.role].d, v:RM[p.role].v, t:RM[p.role].t, alive:p.alive, ghost:p.ghost,
     info:infoLines(G,s), msgs:p.f.msgs.slice(0,8), prompt:promptFor(G,s), ready:H.ready.has(s), converted:!!p.f.converted };
-  if(G.phase==="night"&&isKiller(p)&&p.alive){ base.wolves=[...G.pack].filter(j=>isKiller(G.p[j])).map(j=>({n:G.p[j].name,pick:(G.acts[j]&&G.acts[j].t)?G.acts[j].t.map(x=>G.p[x].name):null})); base.chat=H.wolfChat; }
+  if(G.phase==="night"&&isKiller(p)&&p.alive){ base.wolves=[...G.pack].filter(j=>isKiller(G.p[j])).map(j=>{ const a=(G.acts[j]&&G.acts[j].t&&G.acts[j].t.length)?G.acts[j].t:null, d=(G.props&&G.props[j])||null; return {n:G.p[j].name,me:j===s,pickI:a,pick:a?a.map(x=>G.p[x].name):null,draftI:d,draft:d?d.map(x=>G.p[x].name):null}; }); base.chat=H.wolfChat; }
   return base;
 }
 function modTags(G,k){ const p=G.p[k], t=[]; if(p.f.lover!=null) t.push("💘"+G.p[p.f.lover].name); if(p.f.cult) t.push("🌀ลัทธิ"); if(p.f.shield) t.push("🛡พร"); if(p.f.converted) t.push("🐺กลายเป็นหมาป่า"); if(p.role==="drunk"&&p.trueRole) t.push("จริงๆคือ "+RM[p.trueRole].th); if(G.hexed===k) t.push("ถูกสาป"); if(G.mute===k) t.push("ใบ้"); if(p.f.used) t.push("ใช้พลังแล้ว"); return t; }
@@ -905,8 +906,15 @@ function skipBtn(v){ if(!v.auto||O.role!=="host"||v.phase==="over") return ""; c
   const L={deal:"เริ่มเกมเลย (ไม่รอคนที่ยังไม่กดรับทราบ)",intro:"ข้าม — คนถัดไป",introdone:"ข้ามไปคืนแรก",night:"ข้ามคืนนี้ — ขึ้นเช้าเลย",day:"ข้ามไปโหวตเลย",vote:"สรุปผลโหวตเลย",voteres:"ข้ามไปต่อเลย",hunter:"ข้าม — ยิงขึ้นฟ้า"}[st];
   return L?'<button class="btn block" data-a="cmd" data-c="skip">⏭️ '+L+' <span class="hint">(เฉพาะเจ้าของห้อง)</span></button>':""; }
 function autoClock(v,lab){ return v.auto&&v.autoEnd?'<div class="panel center"><span class="hint">'+lab+'</span> '+timer(v.autoEnd)+'</div>':""; }
+function wolfBoard(v){
+  const W=v.wolves||[], key=a=>a?[...a].sort((x,y)=>x-y).join(","):"", mine=W.find(w=>w.me), myKey=mine?key(mine.pickI):"";
+  const stat=W.map(w=>'<div class="hint">'+(w.me?"คุณ":esc(w.n))+': '+(w.pick?'✅ ยืนยันแล้ว: '+esc(w.pick.join(", ")):w.draft?'💭 กำลังเลือก: '+esc(w.draft.join(", ")):"ยังไม่เลือก")+'</div>').join("");
+  const seen={}, btns=W.filter(w=>!w.me).map(w=>{ const idx=w.pickI||w.draftI; if(!idx||!idx.length) return ""; const k=key(idx); if(k===myKey||seen[k]) return ""; seen[k]=1; return '<button class="btn primary block" data-a="wcf" data-t="'+idx.join(",")+'">✅ ยืนยัน: ฆ่า '+esc((w.pick||w.draft).join(", "))+' (ตามที่ '+esc(w.n)+' เลือก)</button>'; }).join("");
+  const c={}; W.filter(w=>w.pickI).forEach(w=>{ const k=key(w.pickI); c[k]=(c[k]||0)+1; }); const top=Math.max(0,...Object.values(c)), need=Math.floor(W.length/2)+1;
+  return '<div class="label">หมาป่า — เมื่อใครเลือก เพื่อนๆ จะเห็นทันที แล้วกดยืนยันเพื่อเลือกตัวเดียวกัน</div>'+(btns?'<div class="panel">'+btns+'</div>':"")+stat+'<div class="hint">ยืนยันตรงกัน '+top+'/'+W.length+' (ต้องมีอย่างน้อย '+need+' เสียงที่เลือกเหมือนกันจึงจะกำจัดได้)</div>';
+}
 function pickChips(v,pool,sel,wolfPicks){
-  return '<div class="chips">'+pool.map(j=>{ const on=sel.includes(j); const who=(wolfPicks||[]).filter(w=>w.pick&&w.pick.includes(v.players[j].name)).map(w=>w.n);
+  return '<div class="chips">'+pool.map(j=>{ const on=sel.includes(j); const who=(wolfPicks||[]).filter(w=>!w.me&&((w.pickI&&w.pickI.includes(j))||(w.draftI&&w.draftI.includes(j)))).map(w=>(w.pickI&&w.pickI.includes(j)?"✅":"💭")+w.n);
     return '<button class="chip pick" aria-pressed="'+on+'" data-a="tog" data-p="'+j+'">'+esc(v.players[j].name)+(who.length?' <small>('+who.map(esc).join(",")+')</small>':"")+'</button>'; }).join("")+'</div>';
 }
 function nightPanel(v){
@@ -917,9 +925,9 @@ function nightPanel(v){
   let b='<div class="panel"><h3>'+esc(p.title)+'</h3><div class="hint">'+esc(p.hint)+'</div>';
   if(p.k==="pick"||p.k==="wolf"){
     b+=pickChips(v,p.pool,sel,p.k==="wolf"?v.wolves:null);
-    b+='<button class="btn primary block" data-a="submit" '+(sel.length!==p.n?"disabled":"")+'>ยืนยัน'+(p.n>1?" ("+sel.length+"/"+p.n+")":"")+'</button>'+(p.opt?'<button class="btn block" data-a="skip">ข้าม (เก็บไว้ก่อน)</button>':"");
+    b+='<button class="btn primary block" data-a="submit" '+(sel.length!==p.n?"disabled":"")+'>'+(p.k==="wolf"?"ยืนยันเหยื่อ":"ยืนยัน")+(p.n>1?" ("+sel.length+"/"+p.n+")":"")+'</button>'+(p.opt?'<button class="btn block" data-a="skip">ข้าม (เก็บไว้ก่อน)</button>':"");
     if(p.done) b+='<div class="okbox">✅ ส่งคำตอบแล้ว (เปลี่ยนได้จนกว่าจะขึ้นเช้า)</div>';
-    if(p.k==="wolf"){ b+='<div class="label">หมาป่า</div>'+v.wolves.map(w=>'<div class="hint">'+esc(w.n)+': '+(w.pick?esc(w.pick.join(", ")):"ยังไม่เลือก")+'</div>').join("")+
+    if(p.k==="wolf"){ b+=wolfBoard(v)+
       '<div class="label">แชตหมาป่า (เห็นเฉพาะหมาป่า)</div><div class="chat">'+v.chat.map(c=>'<div><b>'+esc(c.n)+'</b> '+esc(c.s)+'</div>').join("")+'</div><div class="row"><input id="chat" maxlength="40" placeholder="พิมพ์สั้นๆ"><button class="btn" data-a="chat">ส่ง</button></div>'; }
   } else if(p.k==="witch"){
     b+=(p.heal?'<div class="label">ยาช่วย (เลือกคนที่จะปกป้อง)</div>'+hx(v,p.pool,O.ui.h,"h"):"")+(p.kill?'<div class="label">ยาพิษ (เลือกคนที่จะกำจัด)</div>'+hx(v,p.pool,O.ui.x,"x"):"")+'<button class="btn primary block" data-a="submit">ยืนยัน (ไม่เลือก = ไม่ใช้)</button>'+(p.done?'<div class="okbox">✅ ส่งแล้ว</div>':"");
@@ -961,7 +969,8 @@ $app.addEventListener("click",e=>{
     case "auto": toHost({t:"cmd",c:"auto"}); break; case "start": toHost({t:"cmd",c:"start"}); break;
     case "cmd": toHost({t:"cmd",c:b.dataset.c}); break;
     case "zoom": zoomRole(b); break; case "note": toHost({t:"cmd",c:"note",p:+b.dataset.p,k:b.dataset.k}); break; case "nclear": toHost({t:"cmd",c:"nclear"}); break; case "mkill": if(confirm("สั่งให้ “"+b.dataset.n+"” ตายจริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"fkill",p:+b.dataset.p}); break; case "mrev": if(confirm("ชุบชีวิต “"+b.dataset.n+"” จริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"frev",p:+b.dataset.p}); break; case "snd": setSound(!AUD.on); render(); break; case "say": SAY.on=!SAY.on; try{ localStorage.setItem("ww-say",SAY.on?"1":"0"); }catch(e){} if(SAY.on) say("เปิดเสียงบรรยายแล้ว"); else { try{ speechSynthesis.cancel(); }catch(e){} } render(); break; case "ready": ui.revealCard=false; toHost({t:"ready"}); break; case "revc": ui.revealCard=!ui.revealCard; render(); break; case "peek": ui.peek=!ui.peek; render(); break;
-    case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } render(); break; }
+    case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } if(pr.k==="wolf") toHost({t:"prop",p:ui.sel.slice()}); render(); break; }
+    case "wcf": { const t=b.dataset.t.split(",").map(Number); ui.sel=t.slice(); toHost({t:"prop",p:t}); toHost({t:"act",a:{t}}); break; }
     case "submit": { const pr=v.priv.prompt; if(pr.k==="witch") toHost({t:"act",a:{h:ui.h,x:ui.x}}); else toHost({t:"act",a:{t:ui.sel}}); break; }
     case "skip": toHost({t:"act",a:{t:[]}}); break;
     case "hx": { const k=b.dataset.key, p=+b.dataset.p; ui[k]=ui[k]===p?null:p; render(); break; }
