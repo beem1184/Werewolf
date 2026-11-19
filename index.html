@@ -281,7 +281,7 @@ function endNight(G){
   });
   /* kills */
   if (G.bruteQ!=null){ const b=G.bruteQ; G.bruteQ=null; attempt(G,b,"หนุ่มถึกถูกหมาป่ากำจัด (เลื่อนมาคืนนี้)"); }
-  const wt = (N>=2 && !G.wolvesSick) ? wolfTarget(G) : null;
+  const wt = (N>=1 && !G.wolvesSick) ? wolfTarget(G) : null;
   if (wt) wt.forEach(t=>{ const q=P[t]; if(!q.alive) return; L(G,"หมาป่าเลือก "+nm(G,t));
     if (q.role==="vampire"){ L(G,"แวมไพร์ไม่ตายจากหมาป่า"); return; }
     if (G.protect.has(t)){ L(G,nm(G,t)+" ถูกคุ้มครองจากหมาป่า"); return; }
