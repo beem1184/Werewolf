@@ -63,6 +63,7 @@ table.roles{width:100%;border-collapse:collapse;font-size:14.5px}table.roles td{
 details summary{cursor:pointer;font-family:var(--font-display);font-weight:600;min-height:32px}details ol{margin:8px 0 0;padding-left:1.3em;color:var(--muted);font-size:14.5px;display:flex;flex-direction:column;gap:6px}
 .selrow select{margin-left:8px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:20;max-width:90vw}
+#offline{position:fixed;top:0;left:0;right:0;z-index:49;padding:10px 14px;background:#9A6200;color:#fff;font-size:14px;text-align:center}
 #hostgone{position:fixed;top:0;left:0;right:0;z-index:50;padding:10px 14px;background:#B3261E;color:#fff;font-size:14px;text-align:center}
 .ri{flex:none;position:relative;width:60px;height:60px;border-radius:12px;overflow:hidden;background:var(--accent-soft);display:grid;place-items:center;cursor:zoom-in}
 .ri img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block}
@@ -74,7 +75,11 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:600;m
 .zoomov img{max-width:min(92vw,420px);max-height:86vh;border-radius:16px;box-shadow:0 10px 40px #000a}
 .rcard .cardimg{display:none}.rcard.hasimg{padding:0;background:none;border:0;box-shadow:none;max-width:340px;margin-inline:auto}.rcard.hasimg>*:not(.cardimg):not(.warnbox){display:none}.rcard.hasimg .cardimg{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 8px 28px #0008}
 .mctl{display:flex;flex-wrap:wrap;gap:6px;padding:2px 2px 12px}.chip{font:inherit;font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;cursor:pointer}.chip.on{background:var(--accent);color:#fff;border-color:transparent}.chip.kill{border-color:#b3261e;color:#b3261e}.chip.rev{border-color:#2e7d32;color:#2e7d32}
-</style></head><body><div id="hostgone" hidden>⚠️ ผู้ดำเนินเกมหลุดการเชื่อมต่อ เกมถูกบันทึกไว้แล้ว รอผู้ดำเนินเกมกลับเข้ามา (ใช้ปุ่ม “กลับเข้าห้อง” ในหน้าแรก)</div><main id="app"></main><script>
+html{background:var(--bg)}body{background:transparent}
+/* ภาพพื้นหลัง: วางไฟล์ไว้ที่ images/bg.jpg (ทุกหน้า) หรือ bg-lobby / bg-night / bg-day แยกตามช่วง ปรับความมืดที่ opacity ด้านล่าง (ยิ่งน้อยยิ่งเห็นรูปชัด) */
+#bgimg{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;background-repeat:no-repeat;opacity:0;transition:opacity .9s ease;pointer-events:none}
+#bgimg.on{opacity:1}#bgimg::before{content:"";position:absolute;inset:0;background:var(--bg);opacity:.62}
+</style></head><body><div id="hostgone" hidden>⚠️ ผู้ดำเนินเกมหลุดการเชื่อมต่อ เกมถูกบันทึกไว้แล้ว รอผู้ดำเนินเกมกลับเข้ามา (ใช้ปุ่ม “กลับเข้าห้อง” ในหน้าแรก)</div><div id="bgimg"></div><div id="offline" hidden>📡 ขาดการเชื่อมต่อ กำลังเชื่อมต่อใหม่… (ถ้าไม่กลับมา ให้ปิดแล้วเปิดเกมใหม่ ระบบจะพากลับเข้าห้องเดิมให้เอง)</div><main id="app"></main><script>
 /* ================= roles: values (+ village / − wolf) read from the Thai booklet cards ================= */
 /* t: v = village side, w = wolf side, x = third party. v = card balance number. Edit freely. */
 const ROLES = [
@@ -86,7 +91,7 @@ const ROLES = [
  {id:"priest",th:"นักบวช",e:"🙏",v:3,t:"v",max:1,d:"ครั้งเดียวต่อเกม ให้พรผู้เล่น 1 คน (ไม่ใช่ตัวเอง) ผู้นั้นรอดจากการถูกกำจัดครั้งแรกไม่ว่าด้วยวิธีใด"},
  {id:"investigator",th:"นักสืบเรื่องลี้ลับ",e:"🔍",v:3,t:"v",max:1,d:"ครั้งเดียวต่อเกม เลือกผู้เล่น 1 คน จะรู้ว่าในตัวเขาและผู้เล่นทางซ้าย-ขวามีมนุษย์หมาป่าปะปนอยู่หรือไม่ (ไม่ระบุว่าใคร)"},
  {id:"hunter",th:"นายพราน",e:"🎯",v:3,t:"v",max:1,d:"เมื่อถูกกำจัดไม่ว่าเวลาใด จะยิงผู้เล่น 1 คนให้ตายตามทันที หรือยิงขึ้นฟ้าก็ได้"},
- {id:"bodyguard",th:"บอดี้การ์ด",e:"🛡️",v:3,t:"v",max:1,d:"ทุกคืนคุ้มครองผู้เล่น 1 คน (ไม่ใช่ตัวเอง ห้ามเลือกคนเดิมสองคืนติด) ผู้นั้นไม่ถูกกำจัดในคืนนั้น"},
+ {id:"bodyguard",th:"บอดี้การ์ด",e:"🛡️",v:3,t:"v",max:1,d:"ทุกคืนคุ้มครองผู้เล่น 1 คน (เลือกตัวเองได้ แต่ห้ามเลือกคนเดิมสองคืนติด) ผู้นั้นไม่ถูกกำจัดในคืนนั้น"},
  {id:"prince",th:"เจ้าชาย",e:"🤴",v:3,t:"v",max:1,d:"ถ้าถูกโหวตกำจัดตอนกลางวัน จะเปิดตัวและรอด การโหวตถูกยกเลิกและเข้าสู่กลางคืนทันที"},
  {id:"brute",th:"หนุ่มถึก",e:"💪",v:3,t:"v",max:1,d:"ถ้ามนุษย์หมาป่าเลือกคุณเป็นเป้าหมาย คุณจะไม่ตายในคืนนั้น แต่จะถูกกำจัดในคืนถัดไปแทน"},
  {id:"diseased",th:"ผู้ป่วยติดเชื้อ",e:"🤒",v:3,t:"v",max:1,d:"ถ้ามนุษย์หมาป่ากำจัดคุณ พวกเขาจะติดโรคและเลือกเป้าหมายไม่ได้ในคืนถัดไป"},
@@ -132,7 +137,7 @@ function newGame(names, roleIds, opt){
   const G = { N, p:names.map((nm,i)=>({ name:nm, role:deal[i], trueRole:null, alive:true, ghost:false, f:{ msgs:[] } })),
     night:0, phase:"deal", acts:{}, log:[], pub:[], dawn:[], voteres:null, hunterQ:[], reveal:opt.reveal!==false,
     protect:new Set(), killCount:1, cubPending:false, sickNext:false, wolvesSick:false, mute:null, hexed:null,
-    dayDouble:false, votesLeft:0, votes:{}, bruteQ:null, cultOrder:[], ghostChars:null, beggarWon:false,
+    deaths:[], dayDouble:false, votesLeft:0, votes:{}, bruteQ:null, cultOrder:[], ghostChars:null, beggarWon:false,
     vampMark:null, over:null, after:null, pack:new Set(), introPos:0, introOrder:[], dayNo:0 };
   const inDeck = new Set(deal);
   G.p.forEach((p,i) => {
@@ -157,7 +162,7 @@ function startIntro(G){
 function introNext(G){ G.introPos++; return G.introPos < G.introOrder.length; }
 
 /* ---------- night ---------- */
-function startNight(G){
+function startNight(G){ G.wolfKill=false;
   G.night++; G.phase="night"; G.acts={}; G.protect=new Set(); G.dawn=[]; G.voteres=null;
   G.killCount = G.cubPending ? 2 : 1; G.cubPending=false; G.wolvesSick=G.sickNext; G.sickNext=false;
   G.mute=null; G.hexed=null; G.dayDouble=false;
@@ -182,7 +187,7 @@ function nightSpec(G,i){
     case "aura": return pk(1,oth,"ส่องผู้เล่น 1 คน","จะรู้ว่ามีบทบาทพิเศษหรือไม่");
     case "investigator": return p.f.used ? null : pk(1,oth,"ตรวจผู้เล่น 1 คนกับเพื่อนซ้าย-ขวา","ใช้ได้ครั้งเดียว หรือกดข้ามเก็บไว้ก่อน",true);
     case "priest": return p.f.used ? null : pk(1,oth,"ให้พรผู้เล่น 1 คน","ใช้ได้ครั้งเดียว หรือกดข้ามเก็บไว้ก่อน",true);
-    case "bodyguard": return pk(1,oth.filter(j=>j!==p.f.lastProt),"คุ้มครองผู้เล่น 1 คน","ห้ามเลือกตัวเอง และห้ามคนเดิมสองคืนติด");
+    case "bodyguard": return pk(1,all.filter(j=>j!==p.f.lastProt),"คุ้มครองผู้เล่น 1 คน","เลือกตัวเองได้ แต่ห้ามเลือกคนเดิมสองคืนติด (เว้นหนึ่งคืนแล้วเลือกใหม่ได้)");
     case "witch": { const h=!p.f.healUsed, x=!p.f.killUsed; return (h||x) ? {k:"witch",pool:all,heal:h,kill:x,title:"ยาของแม่มด",hint:"ใช้ได้ขวดละครั้งต่อเกม เลือกใช้ทั้งสองหรือข้ามก็ได้"} : null; }
     case "hag": return pk(1,oth,"สาปแช่งผู้เล่น 1 คน","เขาจะหายไปจากเกมตลอดวันพรุ่งนี้");
     case "troublemaker": return p.f.used ? null : {k:"yn",title:"ใช้พลังตัวป่วนไหม?",hint:"ใช้ได้ครั้งเดียว วันพรุ่งนี้จะโหวตกำจัด 2 คน"};
@@ -231,7 +236,7 @@ function note(G,i,text){ G.p[i].f.msgs.unshift({n:G.night,text}); }
 function kill(G,i,cause,force){
   const p=G.p[i]; if(!p.alive) return false;
   if (!force && p.f.shield){ p.f.shield=false; L(G,nm(G,i)+" รอดจาก "+cause+" เพราะพรนักบวช"); return false; }
-  p.alive=false; p.f.cause=cause; G.deaths.push(i);
+  p.alive=false; p.f.cause=cause; G.deaths.push(i); if(/มนุษย์หมาป่า|หนุ่มถึก/.test(cause)) G.wolfKill=true;
   const rt=roleTxt(G,i);
   G.pub.push(nm(G,i)+" ถูกกำจัด"+(rt?" (บทบาท: "+rt+")":""));
   L(G,nm(G,i)+" ("+RM[p.role].th+") ตาย: "+cause);
@@ -251,7 +256,7 @@ function attempt(G,t,cause){ if(!G.p[t].alive) return; if(G.protect.has(t)){ L(G
 
 function endNight(G){
   G.pub=[]; G.deaths=[]; const A=G.acts, P=G.p, N=G.night;
-  P.forEach((p,i)=>{ const a=A[i]; if(!a) return; const r=p.role, t=a.t||[];
+  P.forEach((p,i)=>{ const a=A[i]; if(!a){ if(p.role==="bodyguard") p.f.lastProt=null; return; } const r=p.role, t=a.t||[];
     if (p.ghost && a.s){ G.ghostChars=[...a.s]; L(G,"พรายกระซิบเขียน: "+a.s); return; }
     if (r==="cupid" && t.length===2){ P[t[0]].f.lover=t[1]; P[t[1]].f.lover=t[0]; note(G,t[0],"คุณเป็นคู่รักกับ “"+nm(G,t[1])+"”"); note(G,t[1],"คุณเป็นคู่รักกับ “"+nm(G,t[0])+"”"); L(G,"กามเทพจับคู่ "+nm(G,t[0])+" + "+nm(G,t[1])); }
     if (r==="doppel" && t.length) { p.f.copy=t[0]; L(G,nm(G,i)+" (ภูตจำแลง) เลือก "+nm(G,t[0])); }
@@ -259,7 +264,7 @@ function endNight(G){
     if (p.f.cultLeader && t.length){ P[t[0]].f.cult=true; G.cultOrder.push(t[0]); note(G,i,"ชักจูง “"+nm(G,t[0])+"” เข้าลัทธิแล้ว"); L(G,"เจ้าลัทธิชักจูง "+nm(G,t[0])); }
     if (r==="hag" && t.length){ G.hexed=t[0]; L(G,"แม่หมอสาป "+nm(G,t[0])); }
     if (r==="spellcaster" && t.length){ G.mute=t[0]; (p.f.mutedPast=p.f.mutedPast||[]).push(t[0]); L(G,"จอมเวทปิดปาก "+nm(G,t[0])); }
-    if (r==="bodyguard" && t.length){ G.protect.add(t[0]); p.f.lastProt=t[0]; L(G,"บอดี้การ์ดคุ้มครอง "+nm(G,t[0])); }
+    if (r==="bodyguard"){ if(t.length){ G.protect.add(t[0]); p.f.lastProt=t[0]; L(G,"บอดี้การ์ดคุ้มครอง "+nm(G,t[0])+(t[0]===i?" (ตัวเอง)":"")); } else p.f.lastProt=null; }
     if (r==="witch"){ if(a.h!=null){ G.protect.add(a.h); p.f.healUsed=true; L(G,"แม่มดช่วย "+nm(G,a.h)); } }
     if (r==="priest" && t.length){ P[t[0]].f.shield=true; p.f.used=true; L(G,"นักบวชให้พร "+nm(G,t[0])); }
     if (r==="troublemaker" && a.y){ G.dayDouble=true; p.f.used=true; L(G,"ตัวป่วนใช้พลัง: พรุ่งนี้โหวต 2 ครั้ง"); }
@@ -438,17 +443,17 @@ function toast(m){ const d=document.createElement("div"); d.className="toast"; d
 function getPid(code){ const k="ww-pid-"+code; try{ let p=sessionStorage.getItem(k); if(!p){ p="p"+Math.random().toString(36).slice(2,12); sessionStorage.setItem(k,p);} return p; }catch(e){ return "p"+Math.random().toString(36).slice(2,12); } }
 function errText(e){ const c=String((e&&(e.code||e.message))||""); if(/PERMISSION/i.test(c)) return "ฐานข้อมูลไม่อนุญาต ตรวจ Rules ของ Firebase (ดูวิธีตั้งค่า)"; if(/timeout|network|unavailable/i.test(c)) return "เชื่อมต่อ Firebase ไม่ได้ ตรวจอินเทอร์เน็ตและค่า databaseURL แล้วลองใหม่"; return (e&&e.message)||"เชื่อมต่อไม่สำเร็จ"; }
 function hostGone(f){ const el=document.getElementById("hostgone"); if(el) el.hidden=!f; }
-let db=null, RF=null, CN=0, HSID=Math.random().toString(36).slice(2);
+let OFT=0, WLK=null, db=null, RF=null, CN=0, HSID=Math.random().toString(36).slice(2);
 const dbOK=()=>/^https:\/\//.test(FB.databaseURL)&&!!window.firebase;
 function dbInit(){ if(!db){ firebase.initializeApp(FB); db=firebase.database(); } return db; }
 const enc=o=>JSON.stringify(o,(k,v)=>v instanceof Set?{$set:[...v]}:v);
 const dec=t=>JSON.parse(t,(k,v)=>v&&typeof v==="object"&&v.$set?new Set(v.$set):v);
 function netOff(){ try{ if(RF){ RF.child("in").off(); RF.child("pres").off(); RF.child("hp").off(); if(O.pid) RF.child("out/"+O.pid).off(); } }catch(e){} }
-function netConn(){ if(CN) return; CN=1; db.ref(".info/connected").on("value",async s=>{ if(!s.val()||!RF) return;
+function netConn(){ if(CN) return; CN=1; db.ref(".info/connected").on("value",async s=>{ const off=document.getElementById("offline"); clearTimeout(OFT); if(s.val()){ if(off) off.hidden=true; } else OFT=setTimeout(()=>{ if(off) off.hidden=false; },2500); if(!s.val()||!RF) return;
   if(O.role==="host"){ const v=(await RF.child("hp").get()).val(); if(v===false||v===null||v===HSID){ const h=RF.child("hp"); h.set(HSID); h.onDisconnect().set(false); } }
   else if(O.role==="client"&&O.pid){ const q=RF.child("pres/"+O.pid); q.set(1); q.onDisconnect().remove(); } }); }
 function onFail(msg){ netOff(); try{ if(RF&&O.role==="client"&&O.pid) RF.child("pres/"+O.pid).remove(); }catch(e){} RF=null; H=null; hostGone(false); const k={name:O.name,joinCode:O.joinCode}; Object.assign(O,{phase:"entry",role:null,lobby:null,view:null,err:msg},k); render(); }
-function leave(){ O.leaving=true; const rf=RF, host=O.role==="host";
+function leave(){ O.leaving=true; try{ localStorage.removeItem("ww-last"); }catch(e){} const rf=RF, host=O.role==="host";
   try{ if(host&&H){ hostAll({t:"closed"}); try{localStorage.removeItem("ww-host");}catch(e){} setTimeout(()=>{try{rf.remove();}catch(e){}},1500); } }catch(e){}
   netOff(); try{ if(!host&&rf&&O.pid) rf.child("pres/"+O.pid).remove(); }catch(e){}
   RF=null; H=null; hostGone(false); Object.assign(O,{phase:"entry",role:null,lobby:null,view:null,err:"",code:"",me:-1,pid:null}); render(); }
@@ -474,7 +479,7 @@ async function tryHost(n){
   }catch(e){ onFail(errText(e)); }
 }
 function hostBoot(code,h){
-  H=h; O.code=code; O.me=0; O.pid="host"; O.role="host"; O.phase="lobby"; RF=db.ref("rooms/"+code); netConn();
+  H=h; O.code=code; O.me=0; O.pid="host"; O.role="host"; O.phase="lobby"; RF=db.ref("rooms/"+code); netConn(); wl();
   const hp=RF.child("hp"); hp.set(HSID); hp.onDisconnect().set(false);
   try{localStorage.setItem("ww-host",code);}catch(e){}
   RF.child("in").off(); RF.child("in").on("child_added",sn=>{ const v=sn.val(); sn.ref.remove(); try{ hostMsg(JSON.parse(v)); }catch(e){ console.error(e); } });
@@ -495,15 +500,17 @@ function hostPres(pr){ if(!H) return; let ch=false;
   for(let i=H.players.length-1;i>0;i--){ const p=H.players[i], on=!!pr[p.pid]; if(on===p.connected) continue; ch=true; if(!on&&H.phase==="lobby") H.players.splice(i,1); else p.connected=on; }
   if(ch) pushAll(); }
 function hostMsg(x){ if(!H||!x||!x.m||typeof x.m.t!=="string") return; const d=x.m, pid=String(x.pid||"").slice(0,40);
-  if(d.t==="join") hostJoin(pid,d); else { const i=H.players.findIndex(p=>p.pid===pid); if(i>0) hostRecv(i,d); } }
+  if(d.t==="join") hostJoin(pid,d); else if(d.t==="hello"){ const i=H.players.findIndex(p=>p.pid===pid); if(i>0){ H.players[i].connected=true; pushAll(); } } else { const i=H.players.findIndex(p=>p.pid===pid); if(i>0) hostRecv(i,d); } }
 function hostJoin(pid,d){
   const send=m=>qsend(pid,m); let name=clean(d.name)||"ผู้เล่น";
   const old=H.players.findIndex((p,i)=>i>0&&p.pid===pid);
-  if(old>0){ H.players[old].connected=true; send({t:"joined",idx:old,code:O.code}); pushAll(); return; }
+  if(old>0){ const q=H.players[old]; q.connected=true; send({t:"joined",idx:old,code:O.code,name:q.name}); pushAll(); return; }
+  const nk=x=>String(x).trim().toLowerCase(), bn=H.players.findIndex((p,i)=>i>0&&nk(p.name)===nk(name));
+  if(bn>0&&(H.phase!=="lobby"||!H.players[bn].connected)){ const q=H.players[bn], op=q.pid; if(op!==pid){ qsend(op,{t:"closed",why:"moved"}); try{ RF.child("pres/"+op).remove(); }catch(e){} } q.pid=pid; q.connected=true; send({t:"joined",idx:bn,code:O.code,name:q.name}); pushAll(); return; }
   if(H.phase!=="lobby"){ send({t:"reject",reason:"started"}); return; }
   if(H.players.length>=21){ send({t:"reject",reason:"full"}); return; }
-  const base=name; let k=2; while(H.players.some(p=>p.name===name)) name=base+" ("+(k++)+")";
-  H.players.push({pid,name,connected:true}); send({t:"joined",idx:H.players.length-1,code:O.code}); pushAll();
+  const base=name; let k=2; while(H.players.some(p=>nk(p.name)===nk(name))) name=base+" ("+(k++)+")";
+  H.players.push({pid,name,connected:true}); send({t:"joined",idx:H.players.length-1,code:O.code,name}); pushAll();
 }
 async function onJoin(){
   const name=clean(O.name), code=String(O.joinCode||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
@@ -514,7 +521,7 @@ async function onJoin(){
   O.name=name; O.joinCode=code; O.code=code; O.err=""; O.role="client"; O.phase="connecting"; O.leaving=false; O.pid=getPid(code); render();
   let done=false; const to=setTimeout(()=>{ if(!done){ done=true; onFail("ติดต่อห้องไม่ได้ ตรวจรหัสห้องและอินเทอร์เน็ต แล้วลองใหม่"); } },15000);
   try{ dbInit(); const rf=db.ref("rooms/"+code), hp=await rf.child("hp").get();
-    if(!hp.exists()){ done=true; clearTimeout(to); onFail("ไม่พบห้องรหัสนี้ ตรวจรหัสอีกครั้ง และให้ผู้ดำเนินเกมสร้างห้องไว้ก่อน"); return; }
+    if(!hp.exists()){ done=true; clearTimeout(to); try{ localStorage.removeItem("ww-last"); }catch(e){} onFail("ไม่พบห้องรหัสนี้ ตรวจรหัสอีกครั้ง และให้ผู้ดำเนินเกมสร้างห้องไว้ก่อน"); return; }
     RF=rf; netConn(); await rf.child("out/"+O.pid).remove();
     const pr=rf.child("pres/"+O.pid); await pr.set(1); pr.onDisconnect().remove();
     rf.child("out/"+O.pid).on("child_added",sn=>{ const v=sn.val(); sn.ref.remove(); try{ const d=JSON.parse(v); if(!d||typeof d.t!=="string") return; if(d.t==="joined"||d.t==="reject"){ done=true; clearTimeout(to); } clientRecv(d); }catch(e){ console.error(e); } });
@@ -554,7 +561,7 @@ function modCmd(d){
     case "shoot": if(G&&G.phase==="hunter"){ hunterShoot(G,d.v==null?null:+d.v); afterPhase(); } break;
     case "note": if(G&&H.phase!=="lobby"&&G.p[+d.p]&&["mute","bite","save","dead"].includes(d.k)){ H.notes=H.notes||{}; const o=H.notes[+d.p]=H.notes[+d.p]||{}; o[d.k]=o[d.k]?0:1; if(!o.mute&&!o.bite&&!o.save&&!o.dead) delete H.notes[+d.p]; pushAll(); } break;
     case "nclear": H.notes={}; pushAll(); break;
-    case "fkill": if(G&&["night","day","vote","voteres","hunter"].includes(G.phase)){ const p=+d.p; if(G.p[p]&&G.p[p].alive){ const before=G.pub.length; kill(G,p,"ผู้ดำเนินเกมสั่ง",true); modPub(G,G.pub.slice(before)); if(G.phase!=="hunter") settle(G,G.phase); pushAll(); } } break;
+    case "fkill": if(G&&["night","day","vote","voteres","hunter"].includes(G.phase)){ const p=+d.p; if(G.p[p]&&G.p[p].alive){ G.deaths=G.deaths||[]; const before=G.pub.length; kill(G,p,"ผู้ดำเนินเกมสั่ง",true); modPub(G,G.pub.slice(before)); if(G.phase!=="hunter") settle(G,G.phase); pushAll(); } } break;
     case "frev": if(G&&["night","day","vote","voteres","hunter"].includes(G.phase)){ const p=+d.p, q=G.p[p]; if(q&&!q.alive){ q.alive=true; q.ghost=false; delete q.f.cause; G.deaths=(G.deaths||[]).filter(x=>x!==p); G.hunterQ=G.hunterQ.filter(x=>x!==p); const m="✨ "+nm(G,p)+" ได้รับการชุบชีวิตโดยผู้ดำเนินเกม"; L(G,m); modPub(G,[m]); if(G.phase==="hunter"&&!G.hunterQ.length) settle(G,G.after); pushAll(); } } break;
     case "again": if(H.phase==="over"||H.phase==="intro"||H.phase==="deal"||G){ H.G=null; H.notes={}; H.phase="lobby"; H.players=H.players.filter((p,k)=>k===0||p.connected); pushAll(); } break;
   }
@@ -603,7 +610,7 @@ function promptFor(G,s){
   return null;
 }
 function viewFor(i){
-  const G=H.G, mod=i===0, s=seatOf(i), base={ phase:H.phase, g:G.phase, night:G.night, dayNo:G.dayNo, reveal:G.reveal, players:pubPlayers(G),
+  const G=H.G, mod=i===0, s=seatOf(i), base={ phase:H.phase, g:G.phase, night:G.night, dayNo:G.dayNo, reveal:G.reveal, wolfKill:!!G.wolfKill, players:pubPlayers(G),
     dawn:G.dawn, voteIntro:G.voteIntro||[], voteres:G.voteres, votesLeft:G.votesLeft, introEnd:H.introEnd, introPos:G.introPos, introWho:G.introOrder[G.introPos], introTotal:G.introOrder.length, introSecs:H.settings.intro, dayEnd:H.dayEnd, dayMins:H.settings.day,
     votedN:Object.keys(G.votes).length, voteTot:G.phase==="vote"?eligibleVoters(G).filter(j=>!["idiot","pacifist"].includes(G.p[j].role)).length:0,
     hunterWho:G.hunterQ.length?G.p[G.hunterQ[0]].name:null, readyN:H.ready.size, readyTot:G.N, ghostChars:G.ghostChars&&G.night>=1?G.ghostChars.slice(0,G.night):null };
@@ -620,13 +627,13 @@ function modTags(G,k){ const p=G.p[k], t=[]; if(p.f.lover!=null) t.push("💘"+G
 
 function clientRecv(m){
   switch(m.t){
-    case "joined": O.me=m.idx; O.code=m.code; O.phase="lobby"; break;
-    case "reject": onFail(m.reason==="started"?"เกมเริ่มไปแล้ว เข้าร่วมไม่ได้":"ห้องเต็มแล้ว"); return;
+    case "joined": O.me=m.idx; O.code=m.code; O.phase="lobby"; O.myName=m.name||O.name; if(O.role==="client"){ try{ localStorage.setItem("ww-last",JSON.stringify({code:O.code,name:O.myName,t:Date.now()})); }catch(e){} } wl(); break;
+    case "reject": onFail(m.reason==="started"?"เกมเริ่มไปแล้ว ถ้าคุณเคยอยู่ในห้องนี้ ให้ใส่ชื่อเดิมให้ตรงเป๊ะแล้วกดเข้าร่วม จะกลับเข้าเกมเดิมได้":"ห้องเต็มแล้ว"); return;
     case "lobby": O.me=m.me; O.lobby=m; O.phase=O.phase==="entry"?"entry":"lobby"; if(m.hostPhase==="lobby"){ O.view=null; } break;
     case "view": O.view=m.v; break;
-    case "closed": onFail("ผู้ดำเนินเกมปิดห้องแล้ว หรือการเชื่อมต่อขาด"); return;
+    case "closed": if(m.why!=="moved"){ try{ localStorage.removeItem("ww-last"); }catch(e){} } onFail(m.why==="moved"?"คุณเข้าห้องนี้ด้วยชื่อเดิมจากอีกหน้าหนึ่งแล้ว หน้านี้จึงถูกตัดการเชื่อมต่อ":"ผู้ดำเนินเกมปิดห้องแล้ว หรือการเชื่อมต่อขาด"); return;
   }
-  const v=O.view; if(v){ const key=(v.phase+"|"+v.night+"|"+v.g+"|"+v.votesLeft+"|"+(v.priv&&v.priv.prompt?v.priv.prompt.k:"")); if(key!==O.ui.key){ O.ui.key=key; O.ui.sel=[]; O.ui.h=null; O.ui.x=null; if(v.phase==="deal") O.ui.revealCard=true; } sfxFor(v); }
+  const v=O.view; if(v){ const key=(v.phase+"|"+v.night+"|"+v.g+"|"+v.votesLeft+"|"+(v.priv&&v.priv.prompt?v.priv.prompt.k:"")); if(key!==O.ui.key){ O.ui.key=key; O.ui.sel=[]; O.ui.h=null; O.ui.x=null; if(v.phase==="deal") O.ui.revealCard=!(v.priv&&v.priv.ready); } sfxFor(v); }
   render();
 }
 let lastSfx="";
@@ -634,9 +641,9 @@ function sfxFor(v){ const k=v.phase+"|"+v.night+"|"+v.g+"|"+(v.dawn?v.dawn.lengt
   if(v.phase==="night") tone([220,165],.25); else if(v.g==="day"){ if(!AUD.ok.dawn) tone([392,523],.18); } else if(v.g==="vote") tone([330,330],.12); else if(v.phase==="over") tone([523,659,784],.2); else if(v.phase==="intro") tone([440],.12); }
 let AC=null; function tone(fr,d){ try{ if(!AUD.on||(!O.sound&&O.sound!==undefined)) return; AC=AC||new (window.AudioContext||window.webkitAudioContext)(); fr.forEach((f,k)=>{ const o=AC.createOscillator(),g=AC.createGain(); o.frequency.value=f; o.connect(g); g.connect(AC.destination); const t=AC.currentTime+k*d; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.18,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+d*.95); o.start(t); o.stop(t+d); }); }catch(e){} }
 /* ===== เสียงพื้นหลัง + เสียงเอฟเฟกต์จากไฟล์ในโฟลเดอร์ sounds/ (ไม่มีไฟล์ = เงียบ ไม่พัง) =====
-   bg-lobby.mp3 (ห้องรอ/แจกไพ่)  bg-night.mp3 (กลางคืน)  bg-day.mp3 (กลางวัน/โหวต)  dawn.mp3 (เสียงไก่ขันตอนเช้า)  end.mp3 (จบเกม)
+   bg-lobby.mp3 (ห้องรอ/แจกไพ่)  bg-night.mp3 (กลางคืน)  bg-day.mp3 (กลางวัน/โหวต)  kill.mp3 (เสียงหมาป่าสังหาร เล่นก่อนเสียงเช้า)  dawn.mp3 (เสียงไก่ขันตอนเช้า)  end.mp3 (จบเกม)
    รองรับ .mp3 .ogg .m4a  เสียงเล่นบนเครื่องของแต่ละคนเอง ปรับเสียงได้ที่ AUD.vol */
-const AUD={ files:{lobby:"bg-lobby",night:"bg-night",day:"bg-day",dawn:"dawn",end:"end"}, el:{}, bad:{}, ok:{}, cur:null, prevG:null, on:true, pending:false, vol:{bg:.35,fx:.9} };
+const AUD={ files:{lobby:"bg-lobby",night:"bg-night",day:"bg-day",dawn:"dawn",end:"end",kill:"kill"}, el:{}, bad:{}, ok:{}, cur:null, prevG:null, on:true, pending:false, vol:{bg:.35,fx:.9} };
 try{ AUD.on=localStorage.getItem("ww-snd")!=="0"; }catch(e){}
 function audEl(name){
   if(AUD.bad[name]) return null; let a=AUD.el[name];
@@ -655,13 +662,27 @@ function bgPlay(name){
   if(name&&AUD.on){ const a=audEl(name); if(a){ a.volume=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{ AUD.pending=true; }); fade(a,AUD.vol.bg,900,false); } }
 }
 function fx(name){ if(!AUD.on) return; const a=audEl(name); if(!a) return; try{ a.loop=false; a.currentTime=0; a.volume=AUD.vol.fx; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} }
+const BGC={}; let bgCur="";
+function bgProbe(n,cb){ if(n in BGC) return cb(BGC[n]); const ex=["jpg","png","webp"]; let i=0; const t=()=>{ if(i>=ex.length){ BGC[n]=0; cb(0); return; } const im=new Image(); im.onload=()=>{ BGC[n]="images/"+n+"."+ex[i]; cb(BGC[n]); }; im.onerror=()=>{ i++; t(); }; im.src="images/"+n+"."+ex[i]; }; t(); }
+function bgFor(){
+  const v=O.view, g=(O.phase==="entry"||O.phase==="connecting"||!v||v.phase==="over")?"lobby":v.g==="night"?"night":["day","vote","voteres","hunter"].includes(v.g)?"day":"lobby";
+  if(g===bgCur) return; bgCur=g; const want=[g==="lobby"?"bg-lobby":"bg-"+g,"bg"], el=document.getElementById("bgimg"); if(!el) return;
+  const pick=k=>{ if(g!==bgCur) return; if(k>=want.length){ el.classList.remove("on"); return; } bgProbe(want[k],u=>{ if(g!==bgCur) return; if(u){ el.style.backgroundImage='url("'+u+'")'; el.classList.add("on"); } else pick(k+1); }); };
+  pick(0);
+}
+function fxThen(name,next){
+  const a=AUD.on?audEl(name):null; if(!a){ next(); return; }
+  let done=false, tm=0; const go=()=>{ if(done) return; done=true; clearTimeout(tm); a.removeEventListener("ended",go); next(); };
+  try{ a.loop=false; a.currentTime=0; }catch(e){} a.volume=AUD.vol.fx; a.addEventListener("ended",go); tm=setTimeout(go,5000);
+  const p=a.play(); if(p&&p.catch) p.catch(go);
+}
 function audioFor(){
   const v=O.view; let bg=null, g=null;
   if(O.phase==="entry"||O.phase==="connecting") bg=null;
   else if(!v) bg="lobby";
   else { g=v.phase==="over"?"over":v.g;
     bg=g==="over"?null:g==="night"?"night":(g==="day"||g==="vote"||g==="voteres"||g==="hunter")?"day":"lobby"; }
-  if(g!==AUD.prevG){ if(AUD.prevG==="night"&&g&&g!=="night"&&g!=="over") fx("dawn"); if(g==="over") fx("end"); AUD.prevG=g; }
+  if(g!==AUD.prevG){ if(AUD.prevG==="night"&&g&&g!=="night"&&g!=="over"){ if(v&&v.wolfKill) fxThen("kill",()=>fx("dawn")); else fx("dawn"); } if(g==="over") fx("end"); AUD.prevG=g; }
   bgPlay(bg);
 }
 function setSound(on){ AUD.on=on; try{ localStorage.setItem("ww-snd",on?"1":"0"); }catch(e){}
@@ -770,8 +791,9 @@ function overBox(v){ const o=v.over; return '<div class="panel dawn"><div class=
 function vPlayer(v){
   const pv=v.priv; let h=head("มนุษย์หมาป่า"), body="";
   if(v.phase==="deal"){
-    return h+'<div class="stage">ไพ่ของคุณ</div>'+cardBlock(pv,true)+(pv.info.length?'<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':"")+
-     (pv.ready?'<div class="panel center"><p>รับทราบแล้ว รอผู้ดำเนินเกม… ('+v.readyN+'/'+v.readyTot+')</p></div>':'<button class="btn primary block" data-a="ready">รับทราบ — ซ่อนไพ่</button>')+'<div class="hint center">อย่าให้ใครเห็นหน้าจอของคุณ</div>';
+    const shown=!pv.ready||O.ui.revealCard;
+    return h+'<div class="stage">ไพ่ของคุณ</div>'+(shown?cardBlock(pv,true)+(pv.info.length?'<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':""):'<div class="panel center"><p>🔒 ไพ่ถูกซ่อนไว้แล้ว</p></div>')+
+     (pv.ready?'<div class="panel center"><p>รับทราบแล้ว รอผู้ดำเนินเกม… ('+v.readyN+'/'+v.readyTot+')</p></div><button class="btn ghost block" data-a="revc">'+(O.ui.revealCard?"ซ่อนไพ่":"ดูไพ่อีกครั้ง")+'</button>':'<button class="btn primary block" data-a="ready">รับทราบ — ซ่อนไพ่</button>')+'<div class="hint center">อย่าให้ใครเห็นหน้าจอของคุณ</div>';
   }
   const peek='<button class="peek" data-a="peek"><span>'+pv.e+' '+esc(pv.rn)+' '+valChip({v:pv.v})+'</span><span class="hint">'+(O.ui.peek?"ซ่อน":"แตะเพื่อดูไพ่")+'</span></button>'+(O.ui.peek?cardBlock(pv):"");
   const stage=!pv.alive?(pv.ghost?"👻 คุณเป็นผู้ชม (พรายกระซิบ)":"💀 คุณตายแล้ว — ห้ามพูดหรือบอกใบ้"):"";
@@ -828,7 +850,7 @@ function render(){
   else if(O.view){ html=O.view.mod?vMod(O.view):vPlayer(O.view); }
   else if(O.lobby) html=O.role==="host"?modLobby():plLobby();
   else html='<div class="panel center">กำลังเชื่อมต่อ…</div>';
-  audioFor(); html+=sndBtn();
+  audioFor(); bgFor(); html+=sndBtn();
   const y=window.scrollY; $app.innerHTML=html; window.scrollTo(0,y);
 }
 $app.addEventListener("input",e=>{ const t=e.target; if(t.id==="nm") O.name=t.value; else if(t.id==="cd"){ O.joinCode=t.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4); t.value=O.joinCode; } else if(t.id==="gtxt") O.ui.txt=t.value; });
@@ -843,7 +865,7 @@ $app.addEventListener("click",e=>{
     case "cnt": { const c=Object.assign({},O.lobby.settings.counts), k=b.dataset.k; c[k]=Math.max(0,Math.min(RM[k].max,(c[k]||0)+(+b.dataset.d))); if(!c[k]) delete c[k]; O.lobby.settings.counts=c; toHost({t:"cmd",c:"settings",counts:c}); render(); break; }
     case "auto": toHost({t:"cmd",c:"auto"}); break; case "start": toHost({t:"cmd",c:"start"}); break;
     case "cmd": toHost({t:"cmd",c:b.dataset.c}); break;
-    case "zoom": zoomRole(b); break; case "note": toHost({t:"cmd",c:"note",p:+b.dataset.p,k:b.dataset.k}); break; case "nclear": toHost({t:"cmd",c:"nclear"}); break; case "mkill": if(confirm("สั่งให้ “"+b.dataset.n+"” ตายจริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"fkill",p:+b.dataset.p}); break; case "mrev": if(confirm("ชุบชีวิต “"+b.dataset.n+"” จริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"frev",p:+b.dataset.p}); break; case "snd": setSound(!AUD.on); render(); break; case "ready": toHost({t:"ready"}); break; case "peek": ui.peek=!ui.peek; render(); break;
+    case "zoom": zoomRole(b); break; case "note": toHost({t:"cmd",c:"note",p:+b.dataset.p,k:b.dataset.k}); break; case "nclear": toHost({t:"cmd",c:"nclear"}); break; case "mkill": if(confirm("สั่งให้ “"+b.dataset.n+"” ตายจริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"fkill",p:+b.dataset.p}); break; case "mrev": if(confirm("ชุบชีวิต “"+b.dataset.n+"” จริงในเกม? (ผู้เล่นทุกคนจะเห็น)")) toHost({t:"cmd",c:"frev",p:+b.dataset.p}); break; case "snd": setSound(!AUD.on); render(); break; case "ready": ui.revealCard=false; toHost({t:"ready"}); break; case "revc": ui.revealCard=!ui.revealCard; render(); break; case "peek": ui.peek=!ui.peek; render(); break;
     case "tog": { const p=+b.dataset.p, pr=v.priv.prompt, i=ui.sel.indexOf(p); if(i>=0) ui.sel.splice(i,1); else { if(pr.n===1) ui.sel=[p]; else if(ui.sel.length<pr.n) ui.sel.push(p); } render(); break; }
     case "submit": { const pr=v.priv.prompt; if(pr.k==="witch") toHost({t:"act",a:{h:ui.h,x:ui.x}}); else toHost({t:"act",a:{t:ui.sel}}); break; }
     case "skip": toHost({t:"act",a:{t:[]}}); break;
@@ -855,5 +877,11 @@ $app.addEventListener("click",e=>{
     case "shoot": { const p=b.dataset.p; if(O.role==="host") toHost({t:"cmd",c:"shoot",v:p==null?null:+p}); else toHost({t:"shoot",v:p==null?null:+p}); break; }
   } }catch(err){ console.error(err); }
 });
+async function wl(){ try{ if(navigator.wakeLock&&O.phase!=="entry"&&O.phase!=="connecting"&&!document.hidden) WLK=await navigator.wakeLock.request("screen"); }catch(e){} }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState!=="visible") return;
+  try{ if(db) db.goOnline(); }catch(e){}
+  if(O.role==="client"&&RF&&O.pid){ try{ const q=RF.child("pres/"+O.pid); q.set(1); q.onDisconnect().remove(); toHost({t:"hello"}); }catch(e){} }
+  wl(); });
 render();
+(function(){ try{ const l=JSON.parse(localStorage.getItem("ww-last")||"null"); if(l&&l.code&&l.name&&Date.now()-l.t<12*3600e3&&dbOK()&&O.phase==="entry"){ O.name=l.name; O.joinCode=l.code; onJoin(); } }catch(e){} })();
 </script></body></html>
