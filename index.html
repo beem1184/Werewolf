@@ -288,8 +288,8 @@ function endNight(G){
     if (q.role==="brute"){ G.bruteQ=t; L(G,"หนุ่มถึกรอดคืนนี้ แต่จะตายคืนถัดไป"); return; }
     if (q.role==="cursed" && !q.f.converted){ q.f.converted=true; G.pack.add(t); note(G,t,"คุณถูกหมาป่ากัด! ตอนนี้คุณเป็นมนุษย์หมาป่าแล้ว"); L(G,nm(G,t)+" (ผู้ต้องคำสาป) กลายเป็นหมาป่า"); return; }
     const died=kill(G,t,"ถูกมนุษย์หมาป่า"); if(died && q.role==="diseased"){ G.sickNext=true; L(G,"หมาป่าติดโรค คืนถัดไปกำจัดไม่ได้"); } });
-  else if (N>=2 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
-  else if (N>=2) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
+  else if (N>=1 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
+  else if (N>=1) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="witch" && a && a.x!=null){ p.f.killUsed=true; L(G,"แม่มดวางยาพิษ "+nm(G,a.x)); attempt(G,a.x,"ยาพิษแม่มด"); } });
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="vampire"&&p.alive&&a&&a.t&&a.t.length){ G.vampMark=a.t[0]; L(G,"แวมไพร์เลือก "+nm(G,a.t[0])); } });
   /* dawn */
