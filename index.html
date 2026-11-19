@@ -201,7 +201,7 @@ function nightSpec(G,i){
     case "vampire": return pk(1,oth,"เลือกเหยื่อ 1 คน","เขาจะตายตอนเริ่มโหวตของวันพรุ่งนี้");
   }
   if (p.f.cult && p.f.cultLeader && r!=="cult") return pk(1,oth.filter(j=>!G.p[j].f.cult),"ชักจูงผู้เล่น 1 คนเข้าลัทธิ","เขาจะไม่รู้ตัว");
-  if (isKiller(p) && n>=2 && !G.wolvesSick){
+  if (isKiller(p) && n>=1 && !G.wolvesSick){
     const pool = all.filter(j=>!G.pack.has(j));
     const nn = Math.min(G.killCount,pool.length);
     return nn ? {k:"wolf",n:nn,pool,title:G.killCount===2?"เลือกเหยื่อ 2 คน":"เลือกเหยื่อ",hint:"หมาป่าส่วนใหญ่ต้องเลือกตรงกันจึงจะกำจัดได้"} : null;
