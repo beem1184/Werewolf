@@ -196,7 +196,7 @@ function nightSpec(G,i){
     case "vampire": return pk(1,oth,"เลือกเหยื่อ 1 คน","เขาจะตายตอนเริ่มโหวตของวันพรุ่งนี้");
   }
   if (p.f.cult && p.f.cultLeader && r!=="cult") return pk(1,oth.filter(j=>!G.p[j].f.cult),"ชักจูงผู้เล่น 1 คนเข้าลัทธิ","เขาจะไม่รู้ตัว");
-  if (isKiller(p) && n>=2 && !G.wolvesSick){
+  if (isKiller(p) && n>=1 && !G.wolvesSick){
     const pool = all.filter(j=>!G.pack.has(j));
     const nn = Math.min(G.killCount,pool.length);
     return nn ? {k:"wolf",n:nn,pool,title:G.killCount===2?"เลือกเหยื่อ 2 คน":"เลือกเหยื่อ",hint:"หมาป่าส่วนใหญ่ต้องเลือกตรงกันจึงจะกำจัดได้"} : null;
@@ -276,15 +276,15 @@ function endNight(G){
   });
   /* kills */
   if (G.bruteQ!=null){ const b=G.bruteQ; G.bruteQ=null; attempt(G,b,"หนุ่มถึกถูกหมาป่ากำจัด (เลื่อนมาคืนนี้)"); }
-  const wt = (N>=2 && !G.wolvesSick) ? wolfTarget(G) : null;
+  const wt = (N>=1 && !G.wolvesSick) ? wolfTarget(G) : null;
   if (wt) wt.forEach(t=>{ const q=P[t]; if(!q.alive) return; L(G,"หมาป่าเลือก "+nm(G,t));
     if (q.role==="vampire"){ L(G,"แวมไพร์ไม่ตายจากหมาป่า"); return; }
     if (G.protect.has(t)){ L(G,nm(G,t)+" ถูกคุ้มครองจากหมาป่า"); return; }
     if (q.role==="brute"){ G.bruteQ=t; L(G,"หนุ่มถึกรอดคืนนี้ แต่จะตายคืนถัดไป"); return; }
     if (q.role==="cursed" && !q.f.converted){ q.f.converted=true; G.pack.add(t); note(G,t,"คุณถูกหมาป่ากัด! ตอนนี้คุณเป็นมนุษย์หมาป่าแล้ว"); L(G,nm(G,t)+" (ผู้ต้องคำสาป) กลายเป็นหมาป่า"); return; }
     const died=kill(G,t,"ถูกมนุษย์หมาป่า"); if(died && q.role==="diseased"){ G.sickNext=true; L(G,"หมาป่าติดโรค คืนถัดไปกำจัดไม่ได้"); } });
-  else if (N>=2 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
-  else if (N>=2) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
+  else if (N>=1 && G.wolvesSick) L(G,"หมาป่าป่วย กำจัดใครไม่ได้คืนนี้");
+  else if (N>=1) L(G,"หมาป่าตกลงกันไม่ได้ ไม่มีใครถูกกำจัด");
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="witch" && a && a.x!=null){ p.f.killUsed=true; L(G,"แม่มดวางยาพิษ "+nm(G,a.x)); attempt(G,a.x,"ยาพิษแม่มด"); } });
   P.forEach((p,i)=>{ const a=A[i]; if(p.role==="vampire"&&p.alive&&a&&a.t&&a.t.length){ G.vampMark=a.t[0]; L(G,"แวมไพร์เลือก "+nm(G,a.t[0])); } });
   /* dawn */
