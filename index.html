@@ -542,7 +542,7 @@ const seatOf=i=>i-OFF(), netOf=s=>s+OFF();
 /* ----- host commands ----- */
 function hostRecv(i,d){
   if(!H) return; const G=H.G, ph=H.phase;
-  if(d.t==="cmd" && i===0){ if(!AUTO()) return modCmd(d); if(["settings","auto","start","again"].includes(d.c)) return modCmd(d); return; }
+  if(d.t==="cmd" && i===0){ if(!AUTO()) return modCmd(d); if(["settings","auto","start","again","skip"].includes(d.c)) return modCmd(d); return; }
   if(i===0&&!AUTO()) return;  // human moderator has no seat (in auto mode the host plays seat 0)
   const s=seatOf(i);
   if(d.t==="ready" && ph==="deal"){ H.ready.add(s); pushAll(); }
@@ -558,6 +558,8 @@ function modCmd(d){
         if(d.reveal!=null) st.reveal=!!d.reveal; if(d.auto!=null) st.auto=!!d.auto; if([0,20,30,45,60].includes(+d.intro)) st.intro=+d.intro; if([3,5,8,10,15].includes(+d.day)) st.day=+d.day; pushAll(); } break;
     case "auto": if(H.phase==="lobby"){ const n=H.players.length-OFF(); if(n>=4){ H.settings.counts=autoDeck(n); pushAll(); } } break;
     case "start": hostStart(); break;
+    case "skip": { if(!AUTO()||!G||H.phase==="lobby"||H.phase==="over"||G.phase==="over") break; const st=(H.phase==="deal"||H.phase==="intro"||H.phase==="introdone")?H.phase:G.phase;
+      const m={deal:{c:"intro"},intro:{c:"introNext"},introdone:{c:"night"},night:{c:"endnight"},day:{c:"vote"},vote:{c:"endvote"},voteres:{c:"night"},hunter:{c:"shoot",v:null}}[st]; if(m) modCmd(m); break; }
     case "intro": if(H.phase==="deal"&&G.phase==="deal"){ if(H.settings.intro>0){ startIntro(G); H.phase="intro"; H.introEnd=Date.now()+H.settings.intro*1000; } else { startNight(G); H.phase="night"; } pushAll(); } break;
     case "introNext": if(H.phase==="intro"){ if(introNext(G)) H.introEnd=Date.now()+H.settings.intro*1000; else { H.phase="introdone"; } pushAll(); } break;
     case "night": if(H.phase==="introdone"||H.phase==="intro"||(H.phase==="deal"&&G.phase==="deal")){ startNight(G); H.phase="night"; H.wolfChat=[]; pushAll(); } else if(G&&G.phase==="voteres"){ afterVote(G); afterPhase(); } break;
@@ -882,7 +884,7 @@ function vPlayer(v){
   if(v.phase==="deal"){
     const shown=!pv.ready||O.ui.revealCard;
     return h+'<div class="stage">ไพ่ของคุณ</div>'+(shown?cardBlock(pv,true)+(pv.info.length?'<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>':""):'<div class="panel center"><p>🔒 ไพ่ถูกซ่อนไว้แล้ว</p></div>')+
-     (pv.ready?'<div class="panel center"><p>รับทราบแล้ว รอ'+(v.auto?"เพื่อนๆ":"ผู้ดำเนินเกม")+'… ('+v.readyN+'/'+v.readyTot+')'+(v.auto&&v.autoEnd?' <span class="hint">เริ่มเองใน</span> '+timer(v.autoEnd):"")+'</p></div><button class="btn ghost block" data-a="revc">'+(O.ui.revealCard?"ซ่อนไพ่":"ดูไพ่อีกครั้ง")+'</button>':'<button class="btn primary block" data-a="ready">รับทราบ — ซ่อนไพ่</button>')+'<div class="hint center">อย่าให้ใครเห็นหน้าจอของคุณ</div>';
+     (pv.ready?'<div class="panel center"><p>รับทราบแล้ว รอ'+(v.auto?"เพื่อนๆ":"ผู้ดำเนินเกม")+'… ('+v.readyN+'/'+v.readyTot+')'+(v.auto&&v.autoEnd?' <span class="hint">เริ่มเองใน</span> '+timer(v.autoEnd):"")+'</p></div><button class="btn ghost block" data-a="revc">'+(O.ui.revealCard?"ซ่อนไพ่":"ดูไพ่อีกครั้ง")+'</button>':'<button class="btn primary block" data-a="ready">รับทราบ — ซ่อนไพ่</button>')+skipBtn(v)+'<div class="hint center">อย่าให้ใครเห็นหน้าจอของคุณ</div>';
   }
   const peek='<button class="peek" data-a="peek"><span>'+pv.e+' '+esc(pv.rn)+' '+valChip({v:pv.v})+'</span><span class="hint">'+(O.ui.peek?"ซ่อน":"แตะเพื่อดูไพ่")+'</span></button>'+(O.ui.peek?cardBlock(pv):"");
   const stage=!pv.alive?(pv.ghost?"👻 คุณเป็นผู้ชม (พรายกระซิบ)":"💀 คุณตายแล้ว — ห้ามพูดหรือบอกใบ้"):"";
@@ -897,8 +899,11 @@ function vPlayer(v){
   if(pv.msgs.length&&v.phase!=="over") body+='<div class="panel"><div class="label">ข้อมูลลับของคุณ</div>'+pv.msgs.map(m=>'<p>'+(m.n?'<span class="hint">คืน '+m.n+': </span>':"")+esc(m.text)+'</p>').join("")+'</div>';
   if(pv.info.length&&v.phase!=="over") body+='<div class="panel">'+pv.info.map(x=>'<p>'+esc(x)+'</p>').join("")+'</div>';
   if(v.ghostChars&&v.ghostChars.length) body+='<div class="panel"><div class="label">ข้อความจากยมโลก</div><div class="ghost">'+v.ghostChars.map(esc).join(" ")+'</div></div>';
-  return h+(stage?'<div class="stage">'+stage+'</div>':"")+peek+body+'<div class="panel"><div class="label">ผู้เล่น</div>'+roster(v,false)+'</div><button class="btn ghost block" data-a="leave">'+(O.role==="host"?"ปิดห้อง":"ออกจากห้อง")+'</button>';
+  return h+(stage?'<div class="stage">'+stage+'</div>':"")+peek+body+skipBtn(v)+'<div class="panel"><div class="label">ผู้เล่น</div>'+roster(v,false)+'</div><button class="btn ghost block" data-a="leave">'+(O.role==="host"?"ปิดห้อง":"ออกจากห้อง")+'</button>';
 }
+function skipBtn(v){ if(!v.auto||O.role!=="host"||v.phase==="over") return ""; const st=(v.phase==="deal"||v.phase==="intro"||v.phase==="introdone")?v.phase:v.g;
+  const L={deal:"เริ่มเกมเลย (ไม่รอคนที่ยังไม่กดรับทราบ)",intro:"ข้าม — คนถัดไป",introdone:"ข้ามไปคืนแรก",night:"ข้ามคืนนี้ — ขึ้นเช้าเลย",day:"ข้ามไปโหวตเลย",vote:"สรุปผลโหวตเลย",voteres:"ข้ามไปต่อเลย",hunter:"ข้าม — ยิงขึ้นฟ้า"}[st];
+  return L?'<button class="btn block" data-a="cmd" data-c="skip">⏭️ '+L+' <span class="hint">(เฉพาะเจ้าของห้อง)</span></button>':""; }
 function autoClock(v,lab){ return v.auto&&v.autoEnd?'<div class="panel center"><span class="hint">'+lab+'</span> '+timer(v.autoEnd)+'</div>':""; }
 function pickChips(v,pool,sel,wolfPicks){
   return '<div class="chips">'+pool.map(j=>{ const on=sel.includes(j); const who=(wolfPicks||[]).filter(w=>w.pick&&w.pick.includes(v.players[j].name)).map(w=>w.n);
